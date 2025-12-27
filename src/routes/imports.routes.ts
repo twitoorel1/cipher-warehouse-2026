@@ -3,7 +3,7 @@ import multer from "multer";
 import type { Pool } from "mysql2/promise";
 import type { AppEnv } from "../config/env.js";
 import { createAuthMiddleware } from "../middleware/auth.middleware.js";
-import { requireRole } from "../middleware/rbac.middleware.js";
+import { requireAdmin } from "../middleware/rbac.middleware.js";
 import { createImportsController } from "../controllers/imports.controller.js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -63,7 +63,7 @@ export function createImportsRouter(pool: Pool, env: AppEnv) {
     limits: { fileSize: 20 * 1024 * 1024, files: 1 }, // 20 MB
   });
 
-  router.post("/imports/devices", auth, requireRole(Roles.ADMIN), upload.single("file"), controller.importDevices);
+  router.post("/devices", auth, requireAdmin(), upload.single("file"), controller.importDevices);
 
   // router.post("/imports/devices", auth, requireRole(Roles.ADMIN), upload.single("file"), async (req, res, next) => {
   //   const file = (req as any).file as { path?: string } | undefined;

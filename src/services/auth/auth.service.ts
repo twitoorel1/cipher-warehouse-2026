@@ -7,7 +7,7 @@ import { createRefreshToken, issueAccessToken, sha256Hex } from "./token.service
 import type { AppEnv } from "../../config/env.js";
 import type { LoginInput, MetaInfo } from "../../types/auth.js";
 
-export async function login(db: Pool, env: AppEnv, input: LoginInput, meta: MetaInfo): Promise<{ accessToken: string; refreshToken: string }> {
+export async function login(db: Pool, env: AppEnv, input: LoginInput, meta: MetaInfo): Promise<{ accessToken: string; refreshToken: string; userId: number; role: string }> {
   const user = await findUserByUsernameOrEmail(db, input.username_or_email);
 
   if (!user) throw new AppError({ code: "AUTH_INVALID_CREDENTIALS", status: 401, message: "Invalid credentials" });
@@ -42,10 +42,10 @@ export async function login(db: Pool, env: AppEnv, input: LoginInput, meta: Meta
     });
   });
 
-  return { accessToken, refreshToken: token };
+  return { accessToken, refreshToken: token, userId: user.id, role: user.role };
 }
 
-export async function refresh(db: Pool, env: AppEnv, refreshToken: string | null, meta: { userAgent: string | null; ip: string | null }): Promise<{ accessToken: string; newRefreshToken: string }> {
+export async function refresh(db: Pool, env: AppEnv, refreshToken: string | null, meta: { userAgent: string | null; ip: string | null }): Promise<{ accessToken: string; newRefreshToken: string; userId: number; role: string }> {
   if (!refreshToken) throw new AppError({ code: "AUTH_REFRESH_INVALID", status: 401, message: "Invalid refresh token" });
 
   const hash = sha256Hex(refreshToken);
@@ -82,7 +82,7 @@ export async function refresh(db: Pool, env: AppEnv, refreshToken: string | null
     ttlSeconds: env.jwt.accessTtlSeconds,
   });
 
-  return { accessToken, newRefreshToken: result.newRefreshToken };
+  return { accessToken, newRefreshToken: result.newRefreshToken, userId: result.userId, role: result.role };
 }
 
 export async function logout(db: Pool, refreshToken: string | null): Promise<{ msg: string } | undefined> {

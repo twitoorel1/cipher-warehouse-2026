@@ -1,7 +1,16 @@
 export enum Roles {
-  ADMIN = "ADMIN",
-  EDITOR = "EDITOR",
-  VIEWER = "VIEWER",
+  // ===== System level =====
+  ADMIN = "ADMIN", // מנהל מערכת (בעל כל ההרשאות)
+
+  // ===== Division level =====
+  DIVISION_COMMANDER = "DIVISION_COMMANDER", // מפקד חטיבה
+  DIVISION_DEPUTY_COMMANDER = "DIVISION_DEPUTY_COMMANDER", // סגן מפקד חטיבה
+
+  // ===== Battalion level =====
+  BATTALION_CHIEF_OFFICER = "BATTALION_CHIEF_OFFICER", // קצין ראשי
+  BATTALION_DEPUTY_OFFICER = "BATTALION_DEPUTY_OFFICER", // קצין סגן
+  BATTALION_NCO = "BATTALION_NCO", // נגד
+  BATTALION_SOLDIER = "BATTALION_SOLDIER", // חייל
 }
 
 export type AuthUser = {

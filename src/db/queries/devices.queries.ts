@@ -2,6 +2,45 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { DevicesListQuery } from "../../validators/devices.schemas.js";
 import { CoreDeviceRow } from "../../types/devices.js";
 
+const queryBase = `
+    SELECT
+      d.id AS device_id,
+      d.serial,
+      d.makat,
+      d.device_name,
+      d.lifecycle_status,
+      d.current_unit_id,
+      DATE_FORMAT(d.battery_life, '%m/%Y') AS battery_life,
+
+      u.id AS unit_id,
+      u.unit_name,
+      u.storage_site,
+
+      d.encryption_model_id AS enc_model_id,
+      edm.family_id,
+      ef.code AS family_code,
+      ef.display_name AS family_display_name,
+      ef.is_encrypted AS family_is_encrypted,
+      edm.carrier_code,
+
+      efr.symbol_scope,
+      efr.symbol_global,
+
+      eus.unit_symbol
+
+    FROM core_device d
+    
+    LEFT JOIN storage_units u ON u.id = d.current_unit_id
+
+    LEFT JOIN encryption_device_model edm ON edm.id = d.encryption_model_id
+
+    LEFT JOIN encryption_family ef ON ef.id = edm.family_id
+
+    LEFT JOIN encryption_family_rule efr ON efr.family_id = ef.id AND efr.is_active = 1
+
+    LEFT JOIN encryption_unit_symbol eus ON eus.family_id = ef.id AND eus.unit_id = d.current_unit_id AND eus.is_active = 1
+`;
+
 export type DeviceCardRow = RowDataPacket & {
   device_id: number;
   serial: string;
@@ -9,6 +48,7 @@ export type DeviceCardRow = RowDataPacket & {
   device_name: string;
   lifecycle_status: string;
   current_unit_id: number | null;
+  battery_life: string | null;
 
   unit_id: number | null;
   unit_name: string | null;
@@ -34,56 +74,17 @@ export async function getDeviceCardBySerial(pool: Pool, serial: string): Promise
 
   const [rows] = await pool.query<DeviceCardRow[]>(
     `
-    SELECT
-      d.id AS device_id,
-      d.serial,
-      d.makat,
-      d.device_name,
-      d.lifecycle_status,
-      d.current_unit_id,
-
-      u.id AS unit_id,
-      u.unit_name,
-      u.storage_site,
-
-      d.encryption_model_id AS enc_model_id,
-      edm.family_id,
-      ef.code AS family_code,
-      ef.display_name AS family_display_name,
-      ef.is_encrypted AS family_is_encrypted,
-      edm.carrier_code,
-
-      efr.symbol_scope,
-      efr.symbol_global,
-
-      eus.unit_symbol
-
-    FROM core_device d
-    LEFT JOIN storage_units u
-      ON u.id = d.current_unit_id
-
-    LEFT JOIN encryption_device_model edm
-      ON edm.id = d.encryption_model_id
-
-    LEFT JOIN encryption_family ef
-      ON ef.id = edm.family_id
-
-    LEFT JOIN encryption_family_rule efr
-      ON efr.family_id = ef.id AND efr.is_active = 1
-
-    LEFT JOIN encryption_unit_symbol eus
-      ON eus.family_id = ef.id
-     AND eus.unit_id = d.current_unit_id
-     AND eus.is_active = 1
+    ${queryBase}
 
     WHERE d.serial = ?
-      AND d.deleted_at IS NULL
+    AND d.deleted_at IS NULL
     LIMIT 1
     `,
     [s]
   );
 
   const first = rows[0];
+  if (!first) return null;
   return first ?? null;
 }
 
@@ -127,170 +128,105 @@ export async function getActivePeriodsForFamily(pool: Pool, familyId: number, to
   return rows;
 }
 
-// Olders
-// const SORT_COLUMN_MAP: Record<DevicesListQuery["sort_by"], string> = {
-//   updated_at: "d.updated_at",
-//   created_at: "d.created_at",
-//   device_name: "d.device_name",
-//   makat: "d.makat",
-//   serial: "d.serial",
-// };
+export async function getDeviceById(pool: Pool, id: number): Promise<DeviceCardRow | null> {
+  const [rows] = await pool.query<DeviceCardRow[]>(
+    `
+    ${queryBase}
 
-// export async function countDevices(pool: Pool, q: DevicesListQuery): Promise<number> {
-//   const { whereSql, params } = buildWhere(q);
-//   const [rows] = await pool.query<(RowDataPacket & { total: number })[]>(
-//     `
-//     SELECT COUNT(*) AS total
-//     FROM core_device d
-//     INNER JOIN device_type dt ON dt.id = d.device_type_id
-//     ${whereSql}
-//     `,
-//     params
-//   );
+    WHERE d.id = ?
+    AND d.deleted_at IS NULL
+    LIMIT 1
+    `,
+    [id]
+  );
 
-//   return Number(rows[0]?.total ?? 0);
-// }
+  const first = rows[0];
+  if (!first) return null;
+  return first ?? null;
+}
 
-// export async function listDevices(pool: Pool, q: DevicesListQuery): Promise<CoreDeviceRow[]> {
-//   const { whereSql, params } = buildWhere(q);
+function buildWhere(q: DevicesListQuery): { whereSql: string; params: any[] } {
+  const clauses: string[] = ["d.deleted_at IS NULL"];
+  const params: any[] = [];
 
-//   const sortCol = SORT_COLUMN_MAP[q.sort_by];
-//   const sortDir = q.sort_order.toUpperCase() === "ASC" ? "ASC" : "DESC";
-//   const offset = (q.page - 1) * q.limit;
+  if (q.search) {
+    clauses.push("(d.serial LIKE ? OR d.makat LIKE ? OR d.device_name LIKE ?)");
+    const like = `%${q.search}%`;
+    params.push(like, like, like);
+  }
 
-//   const [rows] = await pool.query<(RowDataPacket & CoreDeviceRow)[]>(
-//     `
-//     SELECT
-//       d.id,
-//       d.serial,
-//       d.makat,
-//       d.device_name,
-//       d.current_unit_symbol,
-//       d.lifecycle_status,
-//       d.created_at,
-//       d.updated_at,
-//       d.deleted_at,
+  if (q.lifecycle_status) {
+    clauses.push("d.lifecycle_status = ?");
+    params.push(q.lifecycle_status);
+  }
 
-//       dt.id AS dt_id,
-//       dt.code AS dt_code,
-//       dt.display_name AS dt_display_name,
+  if (q.device_name) {
+    clauses.push("d.device_name LIKE ?");
+    const likeName = `%${q.device_name}%`;
+    params.push(likeName);
+  }
 
-//       ep.id AS ep_id,
-//       ep.profile_name AS ep_profile_name
+  if (q.storage_site) {
+    clauses.push(`d.current_unit_id IN (
+      SELECT id FROM storage_units WHERE storage_site LIKE ?
+    )`);
+    const likeUnit = `%${q.storage_site}%`;
+    params.push(likeUnit);
+  }
 
-//     FROM core_device d
+  let whereSql: string = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
-//     INNER JOIN device_type dt ON dt.id = d.device_type_id
-//     INNER JOIN encryption_profile ep ON ep.id = d.encryption_profile_id
-//     ${whereSql}
-//     ORDER BY ${sortCol} ${sortDir}
-//     LIMIT ?
-//     OFFSET ?
-//     `,
-//     [...params, q.limit, offset]
-//   );
+  return {
+    whereSql,
+    params,
+  };
+}
 
-//   // ${whereSql} == WHERE d.deleted_at IS NULL AND d.lifecycle_status = ?
+export async function countDevices(pool: Pool, q: DevicesListQuery): Promise<number> {
+  const { whereSql, params } = buildWhere(q);
+  const [rows] = await pool.query<(RowDataPacket & { total: number })[]>(
+    `
+    SELECT COUNT(*) AS total
+    FROM core_device d
+    ${whereSql}
+    `,
+    params
+  );
 
-//   return rows.map((r) => ({
-//     id: r.id,
-//     serial: r.serial,
-//     makat: r.makat,
-//     device_name: r.device_name,
-//     current_unit_symbol: r.current_unit_symbol,
-//     lifecycle_status: r.lifecycle_status,
+  // INNER JOIN device_type dt ON dt.id = d.device_type_id
+  return Number(rows[0]?.total ?? 0);
+}
 
-//     device_type_id: {
-//       id: r.dt_id,
-//       code: r.dt_code,
-//       display_name: r.dt_display_name,
-//     },
+const SORT_COLUMN_MAP: Record<DevicesListQuery["sort_by"], string> = {
+  updated_at: "d.updated_at",
+  created_at: "d.created_at",
+  device_name: "d.device_name",
+  makat: "d.makat",
+  serial: "d.serial",
+};
 
-//     encryption_profile_id: {
-//       id: r.ep_id,
-//       profile_name: r.ep_profile_name,
-//     },
+export async function listDevices(pool: Pool, q: DevicesListQuery): Promise<DeviceCardRow[] | null> {
+  const { whereSql, params } = buildWhere(q);
 
-//     created_at: r.created_at,
-//     updated_at: r.updated_at,
-//   }));
-// }
+  const sortCol = SORT_COLUMN_MAP[q.sort_by];
+  const sortDir = q.sort_order.toUpperCase() === "ASC" ? "ASC" : "DESC";
+  const offset = (q.page - 1) * q.limit;
 
-// export async function getDeviceById(pool: Pool, id: number): Promise<CoreDeviceRow | null> {
-//   const [rows] = await pool.query<(RowDataPacket & CoreDeviceRow)[]>(
-//     `
-//     SELECT
-//       d.id,
-//       d.serial,
-//       d.makat,
-//       d.device_name,
-//       d.current_unit_symbol,
-//       d.lifecycle_status,
-//       d.created_at,
-//       d.updated_at,
-//       d.deleted_at,
+  const [rows] = await pool.query<DeviceCardRow[]>(
+    `
+    ${queryBase}
 
-//       dt.id AS dt_id,
-//       dt.code AS dt_code,
-//       dt.display_name AS dt_display_name,
+    ${whereSql}
+    ORDER BY ${sortCol} ${sortDir}
+    LIMIT ?
+    OFFSET ?
+    `,
+    [...params, q.limit, offset]
+  );
 
-//       ep.id AS ep_id,
-//       ep.profile_name AS ep_profile_name
+  // console.log(params);
+  // console.log(whereSql);
 
-//     FROM core_device d
-
-//     INNER JOIN device_type dt ON dt.id = d.device_type_id
-//     INNER JOIN encryption_profile ep ON ep.id = d.encryption_profile_id
-//     WHERE d.id = ?
-//     LIMIT 1
-//     `,
-//     [id]
-//   );
-
-//   const r = rows[0];
-//   if (!r) return null;
-//   if (r.deleted_at !== null) return null;
-
-//   return {
-//     id: r.id,
-//     serial: r.serial,
-//     makat: r.makat,
-//     device_name: r.device_name,
-//     current_unit_symbol: r.current_unit_symbol,
-//     lifecycle_status: r.lifecycle_status,
-
-//     device_type_id: {
-//       id: r.dt_id,
-//       code: r.dt_code,
-//       display_name: r.dt_display_name,
-//     },
-//     encryption_profile_id: {
-//       id: r.ep_id,
-//       profile_name: r.ep_profile_name,
-//     },
-
-//     created_at: r.created_at,
-//     updated_at: r.updated_at,
-//   };
-// }
-
-// function buildWhere(q: DevicesListQuery): { whereSql: string; params: any[] } {
-//   const clauses: string[] = ["d.deleted_at IS NULL"];
-//   const params: any[] = [];
-
-//   if (q.search) {
-//     clauses.push("(d.serial LIKE ? OR d.makat LIKE ? OR d.device_name LIKE ?)");
-//     const like = `%${q.search}%`;
-//     params.push(like, like, like);
-//   }
-
-//   if (q.lifecycle_status) {
-//     clauses.push("d.lifecycle_status = ?");
-//     params.push(q.lifecycle_status);
-//   }
-
-//   return {
-//     whereSql: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
-//     params,
-//   };
-// }
+  if (!rows) return null;
+  return rows ?? null;
+}

@@ -3,9 +3,8 @@ export type CoreDeviceRow = {
   serial: string;
   makat: string;
   device_name: string;
-  current_unit_symbol: string;
-  device_type_id: DeviceTypeRow;
-  encryption_profile_id: EncryptionProfileRow;
+  current_unit_id: string;
+  encryption_model_id: string;
   lifecycle_status: string;
   created_at: string;
   updated_at: string;

@@ -53,6 +53,8 @@ export type AppEnv = {
     accessSecret: string;
     accessTtlSeconds: number;
     refreshTtlDays: number;
+    issuer?: string;
+    audience?: string;
   };
 };
 

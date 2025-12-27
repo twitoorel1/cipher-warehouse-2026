@@ -7,6 +7,9 @@ export const devicesListQuerySchema = z.object({
   sort_order: z.enum(["asc", "desc"]).default("desc"),
   search: z.string().trim().min(1).max(191).optional(),
   lifecycle_status: z.enum(["NEW", "PENDING_CARD", "ACTIVE", "NOT_ELIGIBLE", "TRANSFERRED", "REMOVED"]).optional(),
+  device_name: z.string().trim().min(1).max(191).optional(),
+  storage_site: z.string().trim().min(1).max(191).optional(),
+  battery_life: z.string().trim().min(7).max(7).optional(), // YYYY-MM
 });
 
 export type DevicesListQuery = z.infer<typeof devicesListQuerySchema>;

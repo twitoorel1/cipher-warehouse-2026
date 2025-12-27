@@ -7,7 +7,7 @@ import momentTimezone from "moment-timezone";
 export function createAuthRouter(db: Pool, env: AppEnv) {
   const router = Router();
 
-  router.post("/auth/login", async (req, res, next) => {
+  router.post("/login", async (req, res, next) => {
     try {
       const { username_or_email, password } = req.body;
       const result = await login(db, env, { username_or_email, password }, { userAgent: req.get("user-agent") ?? null, ip: req.ip ?? null });
@@ -21,6 +21,8 @@ export function createAuthRouter(db: Pool, env: AppEnv) {
 
       const expiresAt = momentTimezone().toDate().getTime() + env.jwt.accessTtlSeconds * 1000;
       res.status(200).json({
+        userid: result.userId,
+        role: result.role,
         access_token: result.accessToken,
         expires_at: new Date(expiresAt).toLocaleString(),
         expires_in: env.jwt.accessTtlSeconds,
@@ -30,7 +32,7 @@ export function createAuthRouter(db: Pool, env: AppEnv) {
     }
   });
 
-  router.post("/auth/refresh", async (req, res, next) => {
+  router.post("/refresh", async (req, res, next) => {
     try {
       const rt = req.cookies?.rt ?? null;
 
@@ -45,6 +47,8 @@ export function createAuthRouter(db: Pool, env: AppEnv) {
 
       const expiresAt = momentTimezone().toDate().getTime() + env.jwt.accessTtlSeconds * 1000;
       res.status(200).json({
+        userid: result.userId,
+        role: result.role,
         access_token: result.accessToken,
         expires_at: new Date(expiresAt).toLocaleString(),
         expires_in: env.jwt.accessTtlSeconds,
@@ -54,7 +58,7 @@ export function createAuthRouter(db: Pool, env: AppEnv) {
     }
   });
 
-  router.post("/auth/logout", async (req, res, next) => {
+  router.post("/logout", async (req, res, next) => {
     try {
       const rt = req.cookies?.rt ?? null;
       await logout(db, rt);

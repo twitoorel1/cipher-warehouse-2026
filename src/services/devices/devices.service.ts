@@ -1,6 +1,7 @@
 import type { Pool } from "mysql2/promise";
 import type { DevicesListQuery } from "../../validators/devices.schemas.js";
-import { getDeviceCardBySerial, getUnitSymbolForFamilyAndUnit, getActivePeriodsForFamily } from "../../db/queries/devices.queries.js";
+import { getDeviceCardBySerial, getUnitSymbolForFamilyAndUnit, getActivePeriodsForFamily, getDeviceById, countDevices, listDevices } from "../../db/queries/devices.queries.js";
+import { CoreDeviceRow } from "../../types/devices.js";
 
 function toISODateOnly(d: Date): string {
   const yyyy = d.getUTCFullYear();
@@ -16,6 +17,7 @@ export type DeviceCardResponse = {
     makat: string;
     device_name: string;
     lifecycle_status: string;
+    battery_life: string | null;
     current_unit: null | {
       id: number;
       unit_name: string;
@@ -47,6 +49,7 @@ export async function getDeviceCardBySerialService(pool: Pool, serial: string): 
         makat: String(row.makat),
         device_name: String(row.device_name),
         lifecycle_status: String(row.lifecycle_status),
+        battery_life: row.battery_life ? String(row.battery_life) : null,
         current_unit: currentUnit,
         encryption: null,
       },
@@ -81,6 +84,7 @@ export async function getDeviceCardBySerialService(pool: Pool, serial: string): 
       makat: String(row.makat),
       device_name: String(row.device_name),
       lifecycle_status: String(row.lifecycle_status),
+      battery_life: row.battery_life ? String(row.battery_life) : null,
       current_unit: currentUnit,
       encryption: {
         is_encrypted: isEncrypted,
@@ -94,21 +98,80 @@ export async function getDeviceCardBySerialService(pool: Pool, serial: string): 
   };
 }
 
-// Olders
-// export async function getDevicesList(pool: Pool, q: DevicesListQuery) {
-//   const total = await countDevices(pool, q);
-//   const items = await listDevices(pool, q);
-//   const total_pages = Math.ceil(total / q.limit);
+export async function getDeviceDetails(pool: Pool, id: number): Promise<DeviceCardResponse | null> {
+  const row = await getDeviceById(pool, id);
+  if (!row) return null;
 
-//   return {
-//     items,
-//     page: q.page,
-//     limit: q.limit,
-//     total,
-//     total_pages,
-//   };
-// }
+  const currentUnit = row.unit_id && row.unit_name && row.storage_site ? { id: Number(row.unit_id), unit_name: String(row.unit_name), storage_site: String(row.storage_site) } : null;
 
-// export async function getDeviceDetails(pool: Pool, id: number) {
-//   return getDeviceById(pool, id);
-// }
+  // If we don't have encryption model/family, encryption is null
+  if (!row.family_id || !row.family_code || !row.family_display_name || row.family_is_encrypted === null) {
+    return {
+      device: {
+        id: Number(row.device_id),
+        serial: String(row.serial),
+        makat: String(row.makat),
+        device_name: String(row.device_name),
+        lifecycle_status: String(row.lifecycle_status),
+        battery_life: row.battery_life ? String(row.battery_life) : null,
+        current_unit: currentUnit,
+        encryption: null,
+      },
+    };
+  }
+
+  const familyId = Number(row.family_id);
+  const symbolScope = String(row.symbol_scope || "GLOBAL") as "GLOBAL" | "PER_UNIT";
+  const isEncrypted = Number(row.family_is_encrypted) === 1;
+
+  let symbol: string | null = null;
+
+  if (symbolScope === "GLOBAL") {
+    symbol = row.symbol_global ? String(row.symbol_global) : null;
+  } else {
+    // PER_UNIT
+    if (row.current_unit_id) {
+      symbol = await getUnitSymbolForFamilyAndUnit(pool, Number(familyId), Number(row.current_unit_id));
+    } else {
+      symbol = null;
+    }
+  }
+
+  const todayISO = toISODateOnly(new Date());
+  const periodsRows = await getActivePeriodsForFamily(pool, familyId, todayISO);
+  const periods = periodsRows.map((p) => ({ code: String(p.period_code), order: Number(p.period_order) }));
+
+  return {
+    device: {
+      id: Number(row.device_id),
+      serial: String(row.serial),
+      makat: String(row.makat),
+      device_name: String(row.device_name),
+      lifecycle_status: String(row.lifecycle_status),
+      battery_life: row.battery_life ? String(row.battery_life) : null,
+      current_unit: currentUnit,
+      encryption: {
+        is_encrypted: isEncrypted,
+        family: { code: String(row.family_code), display_name: String(row.family_display_name) },
+        carrier_code: row.carrier_code ? String(row.carrier_code) : null,
+        symbol_scope: symbolScope,
+        symbol,
+        periods,
+      },
+    },
+  };
+}
+
+export async function getDevicesList(pool: Pool, q: DevicesListQuery) {
+  const total = await countDevices(pool, q);
+  const items = await listDevices(pool, q);
+  const total_pages = Math.ceil(total / q.limit);
+
+  return {
+    items,
+    page: q.page,
+    limit: q.limit,
+    total,
+    total_pages,
+  };
+}
