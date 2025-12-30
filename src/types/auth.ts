@@ -16,6 +16,8 @@ export enum Roles {
 export type AuthUser = {
   id: number;
   role: Roles;
+  battalion_id: number | null;
+  division_id: number | null;
 };
 
 export interface LoginInput {
@@ -27,12 +29,15 @@ export interface MetaInfo {
   ip: string | null;
 }
 
-export interface IssueAccessTokenArgs {
+export type IssueAccessTokenArgs = {
   userId: number;
   role: string;
   secret: string;
   ttlSeconds: number;
-}
+
+  battalionId: number | null;
+  divisionId: number | null;
+};
 
 declare global {
   namespace Express {

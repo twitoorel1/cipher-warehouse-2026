@@ -5,8 +5,9 @@ declare module "express-serve-static-core" {
   interface Request {
     user?: {
       id: number;
-      premissions?: string[];
       role: Roles;
+      battalion_id: number | null;
+      division_id: number | null;
     };
   }
 }

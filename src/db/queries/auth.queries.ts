@@ -6,13 +6,15 @@ export type DbUser = {
   email: string;
   password_hash: string;
   role: string;
+  division_id: number | null;
+  battalion_id: number | null;
   is_active: number;
 };
 
 export async function findUserByUsernameOrEmail(db: Pool, value: string): Promise<DbUser | null> {
   const [rows] = await db.query<(DbUser & RowDataPacket)[]>(
     `
-    SELECT id, username, email, password_hash, role, is_active
+    SELECT id, username, email, battalion_id, division_id, password_hash, role, is_active
     FROM users
     WHERE username = ? OR email = ?
     LIMIT 1
@@ -22,16 +24,10 @@ export async function findUserByUsernameOrEmail(db: Pool, value: string): Promis
   return rows[0] ?? null;
 }
 
-export async function findUserById(conn: PoolConnection, userId: number): Promise<Pick<DbUser, "id" | "role" | "is_active"> | null> {
-  const [rows] = await conn.query<
-    (RowDataPacket & {
-      id: number;
-      role: string;
-      is_active: number;
-    })[]
-  >(
+export async function findUserById(conn: PoolConnection, userId: number): Promise<Pick<DbUser, "id" | "role" | "battalion_id" | "division_id" | "is_active"> | null> {
+  const [rows] = await conn.query<(DbUser & RowDataPacket)[]>(
     `
-    SELECT id, role, is_active
+    SELECT id, role, battalion_id, division_id, is_active
     FROM users
     WHERE id = ?
     LIMIT 1

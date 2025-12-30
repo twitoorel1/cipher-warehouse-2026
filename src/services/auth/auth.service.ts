@@ -19,6 +19,8 @@ export async function login(db: Pool, env: AppEnv, input: LoginInput, meta: Meta
   const accessToken = await issueAccessToken({
     userId: user.id,
     role: user.role,
+    battalionId: user.battalion_id ?? null,
+    divisionId: user.division_id ?? null,
     secret: env.jwt.accessSecret,
     ttlSeconds: env.jwt.accessTtlSeconds,
   });
@@ -72,12 +74,15 @@ export async function refresh(db: Pool, env: AppEnv, refreshToken: string | null
       ip: meta.ip,
     });
 
-    return { userId: user.id, role: user.role, newRefreshToken: token };
+    return { userId: user.id, role: user.role, newRefreshToken: token, battalionId: user.battalion_id ?? null, divisionId: user.division_id ?? null };
   });
 
+  console.log(result);
   const accessToken = await issueAccessToken({
     userId: result.userId,
     role: result.role,
+    battalionId: result.battalionId,
+    divisionId: result.divisionId,
     secret: env.jwt.accessSecret,
     ttlSeconds: env.jwt.accessTtlSeconds,
   });

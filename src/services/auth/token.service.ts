@@ -6,7 +6,11 @@ export async function issueAccessToken(args: IssueAccessTokenArgs): Promise<stri
   const key = new TextEncoder().encode(args.secret);
   const now = Math.floor(Date.now() / 1000);
 
-  return new SignJWT({ role: args.role })
+  return new SignJWT({
+    role: args.role,
+    battalion_id: args.battalionId,
+    division_id: args.divisionId,
+  })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setSubject(String(args.userId))
     .setIssuedAt(now)
