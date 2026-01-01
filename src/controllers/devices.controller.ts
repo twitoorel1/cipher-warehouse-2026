@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import type { Pool } from "mysql2/promise";
-import { AppError } from "../middleware/error.middleware.js";
-import { devicesListQuerySchema, deviceIdParamSchema } from "../validators/devices.schemas.js";
-import { getDeviceCardBySerialService, getDeviceDetails, getDevicesList } from "../services/devices/devices.service.js";
+import { AppError } from "@middleware/error.middleware.js";
+import { devicesListQuerySchema, deviceIdParamSchema } from "@validators/devices.schemas.js";
+import { getDeviceCardBySerialService, getDeviceDetails, getDevicesList } from "@services/devices/devices.service.js";
 
 export function createDevicesController(pool: Pool) {
   return {

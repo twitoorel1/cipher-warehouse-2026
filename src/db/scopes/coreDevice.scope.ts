@@ -1,5 +1,5 @@
-import { Roles } from "../../types/auth.js";
-import type { AuthUser } from "../../types/auth.js";
+import { Roles } from "@/types/auth.js";
+import type { AuthUser } from "@/types/auth.js";
 
 export function coreDeviceScope(user: AuthUser): { clause: string; params: any[] } {
   if (user.role === Roles.ADMIN) {

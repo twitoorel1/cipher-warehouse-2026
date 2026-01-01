@@ -1,7 +1,7 @@
 import type { Pool } from "mysql2/promise";
-import type { DevicesListQuery } from "../../validators/devices.schemas.js";
-import { getDeviceCardBySerial, getUnitSymbolForFamilyAndUnit, getActivePeriodsForFamily, getDeviceById, countDevices, listDevices } from "../../db/queries/devices.queries.js";
-import { CoreDeviceRow } from "../../types/devices.js";
+import type { DevicesListQuery } from "@validators/devices.schemas.js";
+import { getDeviceCardBySerial, getUnitSymbolForFamilyAndUnit, getActivePeriodsForFamily, getDeviceById, countDevices, listDevices } from "@db/queries/devices.queries.js";
+import { CoreDeviceRow } from "@/types/devices.js";
 
 function toISODateOnly(d: Date): string {
   const yyyy = d.getUTCFullYear();

@@ -1,7 +1,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import type { DevicesListQuery } from "../../validators/devices.schemas.js";
-import { AuthUser, Roles } from "../../types/auth.js";
-import { coreDeviceScope } from "../scopes/coreDevice.scope.js";
+import type { DevicesListQuery } from "@validators/devices.schemas.js";
+import { AuthUser, Roles } from "@/types/auth.js";
+import { coreDeviceScope } from "@/db/scopes/coreDevice.scope.js";
 
 const queryBase = `
     SELECT
