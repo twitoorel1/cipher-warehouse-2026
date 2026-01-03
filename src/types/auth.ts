@@ -13,11 +13,17 @@ export enum Roles {
   BATTALION_SOLDIER = "BATTALION_SOLDIER", // חייל
 }
 
+export type PermissionOverride = {
+  permission: string; // אפשר להקשיח ל- Permissions enum בהמשך
+  effect: "ALLOW" | "DENY";
+};
+
 export type AuthUser = {
   id: number;
   role: Roles;
   battalion_id: number | null;
   division_id: number | null;
+  permissionOverrides: PermissionOverride[];
 };
 
 export interface LoginInput {

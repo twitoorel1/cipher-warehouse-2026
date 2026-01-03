@@ -41,7 +41,7 @@ async function safeUnlink(filePath: string) {
 
 export function createImportsRouter(pool: Pool, env: AppEnv) {
   const router = Router();
-  const auth = createAuthMiddleware(env);
+  const auth = createAuthMiddleware(pool, env.jwt.accessSecret);
   const controller = createImportsController(pool);
 
   const storage = multer.diskStorage({

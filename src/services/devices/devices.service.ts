@@ -2,6 +2,7 @@ import type { Pool } from "mysql2/promise";
 import type { DevicesListQuery } from "@validators/devices.schemas.js";
 import { getDeviceCardBySerial, getUnitSymbolForFamilyAndUnit, getActivePeriodsForFamily, getDeviceById, countDevices, listDevices } from "@db/queries/devices.queries.js";
 import { CoreDeviceRow } from "@/types/devices.js";
+import { AuthUser } from "@/types/auth.js";
 
 function toISODateOnly(d: Date): string {
   const yyyy = d.getUTCFullYear();
@@ -22,6 +23,7 @@ export type DeviceCardResponse = {
       id: number;
       unit_name: string;
       storage_site: string;
+      // battalion_id: number;
     };
     encryption: null | {
       is_encrypted: boolean;
@@ -34,11 +36,18 @@ export type DeviceCardResponse = {
   };
 };
 
-export async function getDeviceCardBySerialService(pool: Pool, serial: string): Promise<DeviceCardResponse | null> {
-  const row = await getDeviceCardBySerial(pool, serial);
+export async function getDeviceCardBySerialService(pool: Pool, serial: string, user: AuthUser): Promise<DeviceCardResponse | null> {
+  const row = await getDeviceCardBySerial(pool, serial, user);
   if (!row) return null;
 
-  const currentUnit = row.unit_id && row.unit_name && row.storage_site ? { id: Number(row.unit_id), unit_name: String(row.unit_name), storage_site: String(row.storage_site) } : null;
+  const currentUnit =
+    row.unit_id && row.unit_name && row.storage_site
+      ? {
+          id: Number(row.unit_id),
+          unit_name: String(row.unit_name),
+          storage_site: String(row.storage_site),
+        }
+      : null;
 
   // If we don't have encryption model/family, encryption is null
   if (!row.family_id || !row.family_code || !row.family_display_name || row.family_is_encrypted === null) {
@@ -98,11 +107,18 @@ export async function getDeviceCardBySerialService(pool: Pool, serial: string): 
   };
 }
 
-export async function getDeviceDetails(pool: Pool, id: number): Promise<DeviceCardResponse | null> {
-  const row = await getDeviceById(pool, id);
+export async function getDeviceDetails(pool: Pool, id: number, user: AuthUser): Promise<DeviceCardResponse | null> {
+  const row = await getDeviceById(pool, id, user);
   if (!row) return null;
 
-  const currentUnit = row.unit_id && row.unit_name && row.storage_site ? { id: Number(row.unit_id), unit_name: String(row.unit_name), storage_site: String(row.storage_site) } : null;
+  const currentUnit =
+    row.unit_id && row.unit_name && row.storage_site
+      ? {
+          id: Number(row.unit_id),
+          unit_name: String(row.unit_name),
+          storage_site: String(row.storage_site),
+        }
+      : null;
 
   // If we don't have encryption model/family, encryption is null
   if (!row.family_id || !row.family_code || !row.family_display_name || row.family_is_encrypted === null) {
@@ -162,9 +178,9 @@ export async function getDeviceDetails(pool: Pool, id: number): Promise<DeviceCa
   };
 }
 
-export async function getDevicesList(pool: Pool, q: DevicesListQuery) {
-  const total = await countDevices(pool, q);
-  const items = await listDevices(pool, q);
+export async function getDevicesList(pool: Pool, q: DevicesListQuery, user: AuthUser) {
+  const total = await countDevices(pool, q, user);
+  const items = await listDevices(pool, q, user);
   const total_pages = Math.ceil(total / q.limit);
 
   return {

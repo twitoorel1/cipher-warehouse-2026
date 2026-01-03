@@ -3,6 +3,7 @@ import type { Pool } from "mysql2/promise";
 import { AppError } from "@middleware/error.middleware.js";
 import { devicesListQuerySchema, deviceIdParamSchema } from "@validators/devices.schemas.js";
 import { getDeviceCardBySerialService, getDeviceDetails, getDevicesList } from "@services/devices/devices.service.js";
+import { AuthUser } from "@/types/auth.js";
 
 export function createDevicesController(pool: Pool) {
   return {
@@ -14,7 +15,8 @@ export function createDevicesController(pool: Pool) {
           return;
         }
 
-        const card = await getDeviceCardBySerialService(pool, serial);
+        const user = (req as any).user as AuthUser;
+        const card = await getDeviceCardBySerialService(pool, serial, user);
         if (!card) {
           next(new AppError({ code: "NOT_FOUND", status: 404, message: "Device not found" }));
           return;
@@ -41,7 +43,8 @@ export function createDevicesController(pool: Pool) {
           return;
         }
 
-        const devices = await getDeviceDetails(pool, parsed.data.id);
+        const user = (req as any).user as AuthUser;
+        const devices = await getDeviceDetails(pool, parsed.data.id, user);
         if (!devices) {
           next(new AppError({ code: "NOT_FOUND", status: 404, message: "Devices not found" }));
           return;
@@ -70,7 +73,8 @@ export function createDevicesController(pool: Pool) {
           return;
         }
 
-        const data = await getDevicesList(pool, parsed.data);
+        const user = (req as any).user as AuthUser;
+        const data = await getDevicesList(pool, parsed.data, user);
         res.status(200).json(data);
       } catch (e) {
         return next(e);

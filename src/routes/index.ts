@@ -12,7 +12,7 @@ import { Roles } from "../types/auth.js";
 
 export default function createMainRouter(pool: Pool, env: AppEnv) {
   const router = express.Router();
-  const auth = createAuthMiddleware(env);
+  const auth = createAuthMiddleware(pool, env.jwt.accessSecret);
 
   router.get("/", (_req, res) => {
     res.status(200).json({ status: "ok", uptime: formatUptime(process.uptime()) });

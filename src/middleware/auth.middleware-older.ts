@@ -1,81 +1,13 @@
 import type { Request, Response, NextFunction } from "express";
 import { jwtVerify } from "jose";
-import type { Pool } from "mysql2/promise";
 import { AppError } from "./error.middleware.js";
+import type { AppEnv } from "../config/env.js";
 import { Roles } from "../types/auth.js";
 import type { AuthUser } from "../types/auth.js";
-
-// עדיף import יחסי (אם ה-path alias שלך עובד, אפשר להשאיר את שלך)
-import { listUserPermissionOverrides } from "../db/queries/permissions.queries.js";
-
-type OverrideEffect = "ALLOW" | "DENY";
-
-function toOverrideEffect(v: unknown): OverrideEffect {
-  return String(v).trim().toUpperCase() === "DENY" ? "DENY" : "ALLOW";
-}
+import type { Pool } from "mysql2/promise";
+import { listUserPermissionOverrides } from "@/db/queries/permissions.queries.js";
 
 const encoder = new TextEncoder();
-
-// =========================
-// Overrides Cache (TTL)
-// =========================
-type CachedOverrides = {
-  fetchedAtMs: number;
-  overrides: { permission: string; effect: OverrideEffect }[];
-};
-
-const OVERRIDES_TTL_MS = 30_000; // 30 שניות (תוכל לשנות ל-60_000)
-const OVERRIDES_CACHE_MAX = 5_000;
-
-const overridesCache = new Map<number, CachedOverrides>();
-
-function cacheGet(userId: number): CachedOverrides | null {
-  const hit = overridesCache.get(userId);
-  if (!hit) return null;
-
-  const age = Date.now() - hit.fetchedAtMs;
-  if (age > OVERRIDES_TTL_MS) {
-    overridesCache.delete(userId);
-    return null;
-  }
-
-  // LRU: להזיז לסוף
-  overridesCache.delete(userId);
-  overridesCache.set(userId, hit);
-
-  return hit;
-}
-
-function cacheSet(userId: number, value: CachedOverrides) {
-  overridesCache.set(userId, value);
-
-  // LRU eviction
-  if (overridesCache.size > OVERRIDES_CACHE_MAX) {
-    const oldestKey = overridesCache.keys().next().value as number | undefined;
-    if (oldestKey !== undefined) overridesCache.delete(oldestKey);
-  }
-}
-
-// שימושי לשלב A (ניהול overrides): נוכל לקרוא לזה אחרי שינוי הרשאות
-export function invalidateUserOverridesCache(userId?: number) {
-  if (typeof userId === "number") overridesCache.delete(userId);
-  else overridesCache.clear();
-}
-
-async function getOverridesWithCache(pool: Pool, userId: number) {
-  const hit = cacheGet(userId);
-  if (hit) return hit.overrides;
-
-  const rows = await listUserPermissionOverrides(pool, userId);
-
-  const overrides = rows.map((r) => ({
-    permission: String(r.permission).trim(),
-    effect: toOverrideEffect(r.effect),
-  }));
-
-  cacheSet(userId, { fetchedAtMs: Date.now(), overrides });
-  return overrides;
-}
 
 export function createAuthMiddleware(pool: Pool, secret: string) {
   const key = encoder.encode(secret);
@@ -126,19 +58,29 @@ export function createAuthMiddleware(pool: Pool, secret: string) {
         return next(new AppError({ status: 401, code: "UNAUTHORIZED", message: "Invalid token" }));
       }
 
-      // ✅ fetch overrides (cached)
-      const permissionOverrides = await getOverridesWithCache(pool, userId);
+      // ADMIN: no scope required
+
+      // ✅ fetch overrides from DB
+      const rows = await listUserPermissionOverrides(pool, userId);
+
+      const permissionOverrides = rows.map((r) => ({
+        permission: String(r.permission),
+        effect: r.effect,
+      }));
 
       (req as any).user = {
-        id: userId,
+        userId,
         role,
         battalion_id,
         division_id,
-        permissionOverrides,
-      } satisfies AuthUser;
+        permissionOverrides: rows.map((r) => ({
+          permission: String(r.permission).trim(),
+          effect: r.effect === "DENY" ? "DENY" : "ALLOW",
+        })),
+      };
 
       return next();
-    } catch {
+    } catch (err) {
       return next(new AppError({ status: 401, code: "UNAUTHORIZED", message: "Invalid or expired token" }));
     }
   };

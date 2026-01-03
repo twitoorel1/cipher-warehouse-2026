@@ -8,6 +8,7 @@ declare module "express-serve-static-core" {
       role: Roles;
       battalion_id: number | null;
       division_id: number | null;
+      permissionOverrides: PermissionOverride[];
     };
   }
 }

@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import { AppError } from "./error.middleware.js";
 import { Roles, type AuthUser } from "../types/auth.js";
+import { can } from "@/rbac/can.js";
+import { Permissions } from "@/types/permissions.js";
 
 /**
  * Dynamic hierarchy based on enum order.
@@ -32,7 +34,7 @@ export function requireAdmin() {
     }
 
     if (user.role !== Roles.ADMIN) {
-      next(new AppError({ code: "FORBIDDEN", status: 403, message: "Forbidden" }));
+      next(new AppError({ code: "FORBIDDEN 3", status: 403, message: "Forbidden" }));
       return;
     }
 
@@ -71,14 +73,65 @@ export function requireRole(minRole: AuthUser["role"]) {
 
     // If role not found in hierarchy => forbid (guards misconfig)
     if (userRank === -1 || minRank === -1) {
-      next(new AppError({ code: "FORBIDDEN", status: 403, message: "Forbidden" }));
+      next(new AppError({ code: "FORBIDDEN 1", status: 403, message: "Forbidden" }));
       return;
     }
 
     // With 0=highest:
     // user must be <= minRank to be "minRole or higher"
     if (userRank > minRank) {
-      next(new AppError({ code: "FORBIDDEN", status: 403, message: "Forbidden" }));
+      next(new AppError({ code: "FORBIDDEN 2", status: 403, message: "Forbidden" }));
+      return;
+    }
+
+    next();
+  };
+}
+
+/**
+ * Allow if:
+ * 1) user.role >= minRole (hierarchy)
+ * OR
+ * 2) user has permission (including overrides)
+ *
+ * Example:
+ * requireRoleOrPermission(Roles.BATTALION_CHIEF_OFFICER, Permissions.DEVICES_UPDATE)
+ */
+export function requireRoleOrPermission(minRole: AuthUser["role"], permission?: Permissions) {
+  return function rbacOrPermission(req: Request, _res: Response, next: NextFunction) {
+    const user = req.user as AuthUser | undefined;
+
+    if (!user) {
+      next(new AppError({ code: "UNAUTHORIZED", status: 401, message: "Unauthorized" }));
+      return;
+    }
+
+    // ADMIN always bypasses everything
+    if (user.role === Roles.ADMIN) {
+      next();
+      return;
+    }
+
+    if (permission && can(user as any, permission as any)) {
+      next();
+      return;
+    }
+
+    const hierarchy = getHierarchyExcludingAdmin();
+
+    const userRank = getRank(user.role as Roles, hierarchy);
+    const minRank = getRank(minRole as Roles, hierarchy);
+
+    // If role not found in hierarchy => forbid (guards misconfig)
+    if (userRank === -1 || minRank === -1) {
+      next(new AppError({ code: "FORBIDDEN 1", status: 403, message: "Forbidden" }));
+      return;
+    }
+
+    // With 0=highest:
+    // user must be <= minRank to be "minRole or higher"
+    if (userRank > minRank) {
+      next(new AppError({ code: "FORBIDDEN 2", status: 403, message: "Forbidden" }));
       return;
     }
 
@@ -110,7 +163,7 @@ export function requireAnyRole(...roles: AuthUser["role"][]) {
     }
 
     if (!roles.includes(user.role)) {
-      next(new AppError({ code: "FORBIDDEN", status: 403, message: "Forbidden" }));
+      next(new AppError({ code: "FORBIDDEN 4", status: 403, message: "Forbidden" }));
       return;
     }
 
