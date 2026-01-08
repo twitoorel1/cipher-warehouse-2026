@@ -1,7 +1,7 @@
 import type { Pool } from "mysql2/promise";
 import { withTransaction } from "../../db/tx.js";
 import { AppError } from "../../middleware/error.middleware.js";
-import { findUserByUsernameOrEmail, findUserById, insertRefreshToken, findActiveRefreshToken, revokeRefreshToken } from "../../db/queries/auth.queries.js";
+import { findUserByUsernameOrEmail, findUserById, insertRefreshToken, findActiveRefreshToken, revokeRefreshToken, deleteExpiredRefreshTokens, enforceMaxActiveRefreshTokens } from "../../db/queries/auth.queries.js";
 import { verifyPassword } from "./password.service.js";
 import { createRefreshToken, issueAccessToken, sha256Hex } from "./token.service.js";
 import type { AppEnv } from "../../config/env.js";
@@ -42,6 +42,9 @@ export async function login(db: Pool, env: AppEnv, input: LoginInput, meta: Meta
       userAgent: meta.userAgent,
       ip: meta.ip,
     });
+
+    await deleteExpiredRefreshTokens(conn);
+    await enforceMaxActiveRefreshTokens(conn, user.id, 5);
   });
 
   return { accessToken, refreshToken: token, userId: user.id, role: user.role };
@@ -74,10 +77,12 @@ export async function refresh(db: Pool, env: AppEnv, refreshToken: string | null
       ip: meta.ip,
     });
 
+    await deleteExpiredRefreshTokens(conn);
+    await enforceMaxActiveRefreshTokens(conn, user.id, 5);
+
     return { userId: user.id, role: user.role, newRefreshToken: token, battalionId: user.battalion_id ?? null, divisionId: user.division_id ?? null };
   });
 
-  console.log(result);
   const accessToken = await issueAccessToken({
     userId: result.userId,
     role: result.role,

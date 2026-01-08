@@ -10,14 +10,13 @@ export const ROLE_PERMISSIONS: Record<Roles, Permissions[]> = {
 
   [Roles.BATTALION_NCO]: [Permissions.DEVICES_READ, Permissions.DEVICES_UPDATE, Permissions.INVENTORY_READ],
 
-  [Roles.BATTALION_DEPUTY_OFFICER]: [Permissions.DEVICES_READ, Permissions.DEVICES_UPDATE, Permissions.DEVICES_IMPORT, Permissions.INVENTORY_READ, Permissions.INVENTORY_COUNT_APPROVE],
+  [Roles.BATTALION_DEPUTY_OFFICER]: [Permissions.DEVICES_READ, Permissions.DEVICES_UPDATE, Permissions.INVENTORY_READ, Permissions.INVENTORY_COUNT_APPROVE],
 
   [Roles.BATTALION_CHIEF_OFFICER]: [
     Permissions.DEVICES_READ,
     Permissions.DEVICES_CREATE,
     Permissions.DEVICES_UPDATE,
     Permissions.DEVICES_DELETE,
-    Permissions.DEVICES_IMPORT,
     Permissions.DEVICES_EXPORT,
     Permissions.INVENTORY_READ,
     Permissions.INVENTORY_COUNT_APPROVE,
@@ -29,10 +28,10 @@ export const ROLE_PERMISSIONS: Record<Roles, Permissions[]> = {
   // =========================
   [Roles.DIVISION_COMMANDER]: [
     Permissions.DEVICES_READ,
+    Permissions.DEVICES_IMPORT,
     Permissions.DEVICES_CREATE,
     Permissions.DEVICES_UPDATE,
     Permissions.DEVICES_DELETE,
-    Permissions.DEVICES_IMPORT,
     Permissions.DEVICES_EXPORT,
     Permissions.INVENTORY_READ,
     Permissions.INVENTORY_COUNT_APPROVE,
@@ -41,7 +40,7 @@ export const ROLE_PERMISSIONS: Record<Roles, Permissions[]> = {
     Permissions.BATTALIONS_READ,
   ],
 
-  [Roles.DIVISION_DEPUTY_COMMANDER]: [Permissions.DEVICES_READ, Permissions.DEVICES_UPDATE, Permissions.DEVICES_IMPORT, Permissions.INVENTORY_READ, Permissions.INVENTORY_COUNT_APPROVE, Permissions.UNITS_READ],
+  [Roles.DIVISION_DEPUTY_COMMANDER]: [Permissions.DEVICES_READ, Permissions.DEVICES_IMPORT, Permissions.DEVICES_UPDATE, Permissions.INVENTORY_READ, Permissions.INVENTORY_COUNT_APPROVE, Permissions.UNITS_READ],
 
   // =========================
   // Admin

@@ -3,31 +3,13 @@ import { z } from "zod";
 export const storageSiteRegex = /^[A-Z]{2,4}\d{2,4}$/;
 
 export const importInventoryRowSchema = z.object({
-  serial: z
-    .string()
-    .min(1, "serial is required")
-    .transform((s) => s.trim()),
-  makat: z
-    .string()
-    .min(1, "makat is required")
-    .transform((s) => s.trim()),
-  device_name: z
-    .string()
-    .min(1, "device_name is required")
-    .transform((s) => s.trim()),
-
-  // Full raw text from Excel column "אתר אחסון"
-  storage_unit_raw: z
-    .string()
-    .min(1, "storage_unit_raw is required")
-    .transform((s) => s.trim()),
-
-  // Extracted code like MG01 / VS02 / CX02 / MF71
-  storage_site: z
-    .string()
-    .transform((s) => s.trim().toUpperCase())
-    .refine((s) => storageSiteRegex.test(s), "storage_site must look like MG01 / VS02 / CX02 / MF71"),
+  serial: z.string().trim().min(1).max(64),
+  makat: z.string().trim().min(1).max(64),
+  device_name: z.string().trim().min(1).max(255),
+  storage_unit_raw: z.string().trim().min(1).max(255),
+  storage_site: z.string().trim().toUpperCase().regex(storageSiteRegex, "Invalid storage_site"),
 });
+
 export type ImportInventoryRow = z.infer<typeof importInventoryRowSchema>;
 
 export const lifecycleStatusSchema = z.enum(["NEW", "PENDING_CARD", "ACTIVE", "NOT_ELIGIBLE", "TRANSFERRED", "REMOVED"]);

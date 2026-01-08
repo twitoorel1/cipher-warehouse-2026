@@ -4,6 +4,12 @@ import type { Pool } from "mysql2/promise";
 import type { AppEnv } from "../config/env.js";
 import { createAuthMiddleware } from "../middleware/auth.middleware.js";
 
+async function dbPing(pool: Pool, timeoutMs: number) {
+  const ping = pool.query("SELECT 1");
+  const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("DB_PING_TIMEOUT")), timeoutMs));
+  await Promise.race([ping, timeout]);
+}
+
 import { createAuthRouter } from "./auth.routes.js";
 // import { createUsersRouter } from "./users.routes.js";
 import { createDevicesRouter } from "./devices.routes.js";
@@ -16,6 +22,15 @@ export default function createMainRouter(pool: Pool, env: AppEnv) {
 
   router.get("/", (_req, res) => {
     res.status(200).json({ status: "ok", uptime: formatUptime(process.uptime()) });
+  });
+
+  router.get("/health", async (_req, res) => {
+    try {
+      await dbPing(pool, 500); // קצר, לא “healthcheck כבד”
+      res.status(200).json({ ok: true, db: "up" });
+    } catch {
+      res.status(503).json({ ok: false, db: "down" });
+    }
   });
 
   router.use("/auth", createAuthRouter(pool, env));

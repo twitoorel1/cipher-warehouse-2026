@@ -1,61 +1,34 @@
-import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
+import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import type { ImportInventoryRow } from "../../validators/importDevices.schemas.js";
 import { DeviceTypeCode } from "../../types/imports.js";
 
-export async function getOrCreateStorageUnitIdBySite(pool: Pool, input: { storage_site: string; unit_name: string }): Promise<number> {
-  const storageSite = String(input.storage_site).trim().toUpperCase();
-  const unitName = String(input.unit_name).trim();
+export type DbConn = Pool | PoolConnection;
 
-  if (!storageSite) throw new Error("getOrCreateStorageUnitIdBySite: storage_site is empty");
-  if (!unitName) throw new Error("getOrCreateStorageUnitIdBySite: unit_name is empty");
+export type ImportScope = {
+  battalion_id: number | null;
+  division_id: number | null;
+};
 
-  const [rows] = await pool.query<(RowDataPacket & { id: number; unit_name: string })[]>(
-    `
-    SELECT id, unit_name
-    FROM storage_units
-    WHERE storage_site = ? AND is_active = 1
-    LIMIT 1
-    `,
-    [storageSite]
-  );
-
-  if (rows.length > 0) {
-    const existing = rows[0] as RowDataPacket & { id: number; unit_name: string };
-
-    // Keep name synced (optional, but useful)
-    if (existing.unit_name !== unitName) {
-      await pool.query<ResultSetHeader>(
-        `
-        UPDATE storage_units
-        SET unit_name = ?
-        WHERE id = ?
-        `,
-        [unitName, existing.id]
-      );
-    }
-
-    return Number(existing.id);
-  }
-
-  const [ins] = await pool.query<ResultSetHeader>(
-    `
-    INSERT INTO storage_units (unit_name, storage_site, is_active)
-    VALUES (?, ?, 1)
-    `,
-    [unitName, storageSite]
-  );
-
-  return Number(ins.insertId);
+function normSite(site: string): string {
+  return String(site ?? "")
+    .trim()
+    .toUpperCase();
 }
 
 /**
  * Minimal state fetch by serial (for "insert vs update" decision).
  */
-export async function getCoreDeviceStateBySerial(pool: Pool, serial: string): Promise<{ id: number; lifecycle_status: string; current_unit_id: number | null } | null> {
-  const s = String(serial).trim();
+export async function getCoreDeviceStateBySerial(db: DbConn, serial: string): Promise<{ id: number; lifecycle_status: string; current_unit_id: number | null } | null> {
+  const s = String(serial ?? "").trim();
   if (!s) throw new Error("getCoreDeviceStateBySerial: serial is empty");
 
-  const [rows] = await pool.query<(RowDataPacket & { id: number; lifecycle_status: string; current_unit_id: number | null })[]>(
+  const [rows] = await db.query<
+    (RowDataPacket & {
+      id: number;
+      lifecycle_status: string;
+      current_unit_id: number | null;
+    })[]
+  >(
     `
     SELECT id, lifecycle_status, current_unit_id
     FROM core_device
@@ -76,15 +49,67 @@ export async function getCoreDeviceStateBySerial(pool: Pool, serial: string): Pr
 }
 
 /**
+ * storage_units:
+ * - UNIQUE(storage_site)
+ * - We keep unit_name synced
+ * - We set battalion_id/division_id when inserting (hardening + future scoping)
+ */
+export async function getOrCreateStorageUnitIdBySite(db: DbConn, input: { storage_site: string; unit_name: string; scope: ImportScope }): Promise<number> {
+  const storageSite = normSite(input.storage_site);
+  const unitName = String(input.unit_name ?? "").trim();
+
+  if (!storageSite) throw new Error("getOrCreateStorageUnitIdBySite: storage_site is empty");
+  if (!unitName) throw new Error("getOrCreateStorageUnitIdBySite: unit_name is empty");
+
+  const [rows] = await db.query<(RowDataPacket & { id: number; unit_name: string })[]>(
+    `
+    SELECT id, unit_name
+    FROM storage_units
+    WHERE storage_site = ? AND is_active = 1
+    LIMIT 1
+    `,
+    [storageSite]
+  );
+
+  if (rows[0]?.id) {
+    const existing = rows[0];
+
+    // keep name synced
+    if (String(existing.unit_name) !== unitName) {
+      await db.query<ResultSetHeader>(
+        `
+        UPDATE storage_units
+        SET unit_name = ?
+        WHERE id = ?
+        `,
+        [unitName, existing.id]
+      );
+    }
+
+    return Number(existing.id);
+  }
+
+  const [ins] = await db.query<ResultSetHeader>(
+    `
+    INSERT INTO storage_units (unit_name, storage_site, battalion_id, division_id, is_active)
+    VALUES (?, ?, ?, ?, 1)
+    `,
+    [unitName, storageSite, input.scope.battalion_id, input.scope.division_id]
+  );
+
+  return Number(ins.insertId);
+}
+
+/**
  * OPTIONAL (recommended):
  * link makat -> encryption_device_model.id (if table is populated).
  * If not found, returns null (system still works).
  */
-export async function getEncryptionModelIdByMakat(pool: Pool, makat: string): Promise<number | null> {
-  const m = String(makat).trim();
+export async function getEncryptionModelIdByMakat(db: DbConn, makat: string): Promise<number | null> {
+  const m = String(makat ?? "").trim();
   if (!m) return null;
 
-  const [rows] = await pool.query<(RowDataPacket & { id: number })[]>(
+  const [rows] = await db.query<(RowDataPacket & { id: number })[]>(
     `
     SELECT id
     FROM encryption_device_model
@@ -94,21 +119,16 @@ export async function getEncryptionModelIdByMakat(pool: Pool, makat: string): Pr
     [m]
   );
 
-  const first = rows[0];
-  if (!first) return null;
-
-  return Number(first.id);
-  // return rows.length ? Number(rows[0].id) : null;
+  return rows[0]?.id ? Number(rows[0].id) : null;
 }
 
 /**
- * Insert a new device card.
- * - current_unit_id is a FK to storage_units
- * - encryption_model_id is optional (nullable)
- * - lifecycle_status starts as NEW
+ * Insert core_device:
+ * - columns in schema: serial, makat, device_name, current_unit_id, encryption_model_id
+ * - lifecycle_status default is NEW (schema default), but we set explicitly for clarity
  */
-export async function insertCoreDevice(pool: Pool, row: ImportInventoryRow, unitId: number, encryptionModelId: number | null): Promise<void> {
-  await pool.query<ResultSetHeader>(
+export async function insertCoreDevice(db: DbConn, row: ImportInventoryRow, unitId: number, encryptionModelId: number | null): Promise<void> {
+  await db.query<ResultSetHeader>(
     `
     INSERT INTO core_device
       (serial, makat, device_name, current_unit_id, encryption_model_id, lifecycle_status)
@@ -120,15 +140,11 @@ export async function insertCoreDevice(pool: Pool, row: ImportInventoryRow, unit
 }
 
 /**
- * Update inventory-only fields from Excel.
- * Also "revives" REMOVED -> ACTIVE when a device reappears.
- *
- * Returns:
- * - "updated"   if a row matched the serial (and update statement executed)
- * - "unchanged" if no row matched (serial not found or deleted_at not null)
+ * Update inventory-only fields.
+ * Also revives REMOVED -> ACTIVE when a device reappears.
  */
-export async function updateCoreDeviceInventoryOnly(pool: Pool, row: ImportInventoryRow, unitId: number, encryptionModelId: number | null): Promise<"updated" | "unchanged"> {
-  const [res] = await pool.query<ResultSetHeader>(
+export async function updateCoreDeviceInventoryOnly(db: DbConn, row: ImportInventoryRow, unitId: number, encryptionModelId: number | null): Promise<"updated" | "unchanged"> {
+  const [res] = await db.query<ResultSetHeader>(
     `
     UPDATE core_device
     SET
@@ -149,54 +165,51 @@ export async function updateCoreDeviceInventoryOnly(pool: Pool, row: ImportInven
 }
 
 /**
- * Marks devices as REMOVED if they are not present in the current Excel import.
- * presentSerials = all serials seen in the file for YOUR scope (your units).
- *
- * Implementation:
- * - Select all serials from core_device (not deleted)
- * - Compute the missing ones in memory
- * - Update in chunks using IN (...)
+ * HARDENING: Scoped removal (no global REMOVED).
+ * Only remove devices that:
+ * - belong to the same battalion/division scope (when present)
+ * - and are in storage sites present in the file
+ * - and were not present in the file serials
  */
-export async function markRemovedMissingSerials(pool: Pool, presentSerials: string[]): Promise<number> {
+export async function markRemovedMissingSerials(db: DbConn, args: { presentSerials: string[]; storageSites: string[]; scope: ImportScope }): Promise<number> {
+  const presentSerials = (args.presentSerials ?? []).map((s) => String(s).trim()).filter(Boolean);
+  const storageSites = (args.storageSites ?? []).map(normSite).filter(Boolean);
+
+  // safety guards to prevent disasters on empty/invalid files
   if (presentSerials.length === 0) return 0;
+  if (storageSites.length === 0) return 0;
 
-  const CHUNK = 800;
+  const sitesPH = storageSites.map(() => "?").join(", ");
+  const serialsPH = presentSerials.map(() => "?").join(", ");
 
-  const present = new Set(presentSerials.map((s) => String(s).trim()).filter(Boolean));
+  const whereScope: string[] = [];
+  const scopeParams: any[] = [];
 
-  const [serialRows] = await pool.query<(RowDataPacket & { serial: string })[]>(
+  if (args.scope.battalion_id !== null) {
+    whereScope.push("su.battalion_id = ?");
+    scopeParams.push(args.scope.battalion_id);
+  }
+  if (args.scope.division_id !== null) {
+    whereScope.push("su.division_id = ?");
+    scopeParams.push(args.scope.division_id);
+  }
+
+  const scopeSql = whereScope.length > 0 ? `AND (${whereScope.join(" AND ")})` : "";
+
+  const [res] = await db.query<ResultSetHeader>(
     `
-    SELECT serial
-    FROM core_device
-    WHERE deleted_at IS NULL AND serial IS NOT NULL
-    `
+    UPDATE core_device d
+    JOIN storage_units su ON su.id = d.current_unit_id
+    SET d.lifecycle_status = 'REMOVED'
+    WHERE d.deleted_at IS NULL
+      AND su.is_active = 1
+      AND su.storage_site IN (${sitesPH})
+      ${scopeSql}
+      AND d.serial NOT IN (${serialsPH})
+      AND d.lifecycle_status <> 'REMOVED'
+    `,
+    [...storageSites, ...scopeParams, ...presentSerials]
   );
 
-  const toRemove: string[] = [];
-  for (const r of serialRows) {
-    const s = String(r.serial ?? "").trim();
-    if (!s) continue;
-    if (!present.has(s)) toRemove.push(s);
-  }
-
-  if (toRemove.length === 0) return 0;
-
-  let totalMarked = 0;
-
-  for (let i = 0; i < toRemove.length; i += CHUNK) {
-    const part = toRemove.slice(i, i + CHUNK);
-    const [res] = await pool.query<ResultSetHeader>(
-      `
-      UPDATE core_device
-      SET lifecycle_status = 'REMOVED'
-      WHERE deleted_at IS NULL
-        AND serial IN (${part.map(() => "?").join(",")})
-        AND lifecycle_status <> 'REMOVED'
-      `,
-      part
-    );
-    totalMarked += Number(res.affectedRows ?? 0);
-  }
-
-  return totalMarked;
+  return Number(res.affectedRows ?? 0);
 }

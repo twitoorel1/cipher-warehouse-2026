@@ -11,6 +11,7 @@ import type { AppEnv } from "./config/env.js";
 import momentTimezone from "moment-timezone";
 import { harden } from "./middleware/security.middleware.js";
 import createMainRouter from "./routes/index.js";
+import { auditWriteRoutes } from "./utils/writeRoutesAudit.js";
 
 export const createApp = (env: AppEnv, pool: Pool) => {
   const app = express();
@@ -46,6 +47,7 @@ export const createApp = (env: AppEnv, pool: Pool) => {
   app.use(cookieParser());
 
   app.use(createMainRouter(pool, env));
+  auditWriteRoutes(app);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

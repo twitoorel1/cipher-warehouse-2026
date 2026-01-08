@@ -71,19 +71,21 @@ export type DeviceCardRow = RowDataPacket & {
   unit_symbol: string | null;
 };
 
+function appendScope(whereParts: string[], params: any[], user: AuthUser) {
+  const scope = coreDeviceScope(user);
+  if (scope.clause && scope.clause.trim()) {
+    whereParts.push(`(${scope.clause})`);
+    params.push(...scope.params);
+  }
+}
+
 export async function getDeviceCardBySerial(pool: Pool, serial: string, user: AuthUser): Promise<DeviceCardRow | null> {
   const s = String(serial).trim();
   if (!s) throw new Error("serial is required");
 
-  const scope = coreDeviceScope(user);
-
   const whereParts: string[] = ["d.serial = ?", "d.deleted_at IS NULL"];
-  const params: any[] = [serial];
-
-  if (scope.clause) {
-    whereParts.push(scope.clause);
-    params.push(...scope.params);
-  }
+  const params: any[] = [s];
+  appendScope(whereParts, params, user);
 
   const [rows] = await pool.query<(RowDataPacket & DeviceCardRow)[]>(
     `
@@ -141,15 +143,9 @@ export async function getActivePeriodsForFamily(pool: Pool, familyId: number, to
 }
 
 export async function getDeviceById(pool: Pool, id: number, user: AuthUser): Promise<DeviceCardRow | null> {
-  const scope = coreDeviceScope(user);
-
   const whereParts: string[] = ["d.id = ?", "d.deleted_at IS NULL"];
   const params: any[] = [id];
-
-  if (scope.clause) {
-    whereParts.push(scope.clause);
-    params.push(...scope.params);
-  }
+  appendScope(whereParts, params, user);
 
   const [rows] = await pool.query<(RowDataPacket & DeviceCardRow)[]>(
     `
@@ -169,13 +165,7 @@ export async function getDeviceById(pool: Pool, id: number, user: AuthUser): Pro
 export function buildWhere(q: DevicesListQuery, user: AuthUser): { whereSql: string; params: any[] } {
   const clauses: string[] = ["d.deleted_at IS NULL"];
   const params: any[] = [];
-
-  const scope = coreDeviceScope(user);
-  if (scope.clause) {
-    // clauses.push(`(${scope.clause})`);
-    clauses.push(scope.clause);
-    params.push(...scope.params);
-  }
+  appendScope(clauses, params, user);
 
   // ... כל הפילטרים שכבר יש לך (search, lifecycle_status, device_name, storage_site, battery_life וכו׳)
   if (q.search) {

@@ -12,10 +12,10 @@ function normPerm(p: unknown): string {
 }
 
 export function can(user: AuthUser & { permissionOverrides?: PermissionOverride[] }, permission: Permissions | string): boolean {
+  const target = normPerm(permission);
+
   // Admin => always allowed
   if (user.role === Roles.ADMIN) return true;
-
-  const target = normPerm(permission);
 
   // 1) Overrides (DENY wins)
   const overrides = user.permissionOverrides ?? [];

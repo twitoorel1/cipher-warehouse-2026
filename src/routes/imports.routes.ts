@@ -1,16 +1,20 @@
 import { Router, Request } from "express";
 import multer from "multer";
 import type { Pool } from "mysql2/promise";
-import type { AppEnv } from "../config/env.js";
-import { createAuthMiddleware } from "../middleware/auth.middleware.js";
-import { requireAdmin } from "../middleware/rbac.middleware.js";
-import { createImportsController } from "../controllers/imports.controller.js";
+import type { AppEnv } from "@/config/env.js";
+import { requireAdmin } from "@middleware/rbac.middleware.js";
+import { createImportsController } from "@controllers/imports.controller.js";
+import { requirePermission } from "@/middleware/requirePermission.middleware.js";
+import { Permissions } from "@/types/permissions.js";
+import { AppError } from "@/middleware/error.middleware.js";
+
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { Roles } from "../types/auth.js";
+import crypto from "node:crypto";
 
 // מביא את הנתיב של התיקייה
 const UPLOAD_DIR = path.resolve(process.cwd(), "tmp", "uploads");
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB
 
 // מבטיח שהתיקייה קיימת (אם לא, יוצר אותה)
 async function ensureUploadDir(): Promise<void> {
@@ -18,16 +22,20 @@ async function ensureUploadDir(): Promise<void> {
 }
 
 function safeExt(originalName: string): string {
-  const ext = path.extname(originalName || "").toLowerCase();
-  // allow common excel types
-  if (ext === ".xlsx" || ext === ".xls" || ext === ".csv") return ext;
-  // default to xlsx if unknown
-  return ".xlsx";
+  return path.extname(originalName).toLowerCase();
+}
+
+function isAllowedExcel(file: Express.Multer.File): boolean {
+  const ext = safeExt(file.originalname);
+  if (ext !== ".xlsx") return false;
+
+  const allowedMime = new Set(["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream"]);
+  return allowedMime.has(file.mimetype);
 }
 
 function makeFilename(originalName: string): string {
-  const id = crypto.randomUUID();
-  return `import_${Date.now()}_${id}${safeExt(originalName)}`;
+  const ext = safeExt(originalName) || ".xlsx";
+  return `${Date.now()}-${crypto.randomBytes(8).toString("hex")}${ext}`;
 }
 
 // מוחק קובץ בצורה בטוחה (אם קיים)
@@ -39,40 +47,39 @@ async function safeUnlink(filePath: string) {
   }
 }
 
+const storage = multer.diskStorage({
+  destination: async (_req: Request, _file, cb) => {
+    try {
+      await ensureUploadDir();
+      cb(null, UPLOAD_DIR);
+    } catch (e) {
+      cb(e as Error, UPLOAD_DIR);
+    }
+  },
+  filename: (_req: Request, file, cb) => {
+    const ext = safeExt(file.originalname) || ".xlsx";
+    const name = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}${ext}`;
+    cb(null, name);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (!isAllowedExcel(file)) {
+      cb(new AppError({ code: "INVALID_FILE", status: 400, message: "Only .xlsx files are allowed" }));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
 export function createImportsRouter(pool: Pool, env: AppEnv) {
   const router = Router();
-  const auth = createAuthMiddleware(pool, env.jwt.accessSecret);
   const controller = createImportsController(pool);
 
-  const storage = multer.diskStorage({
-    destination: async (_req: Request, _file, cb) => {
-      try {
-        await ensureUploadDir();
-        cb(null, UPLOAD_DIR);
-      } catch (e) {
-        cb(e as Error, UPLOAD_DIR);
-      }
-    },
-    filename: (_req: Request, file, cb) => {
-      cb(null, makeFilename(file.originalname));
-    },
-  });
-
-  const upload = multer({
-    storage,
-    limits: { fileSize: 20 * 1024 * 1024, files: 1 }, // 20 MB
-  });
-
-  router.post("/devices", auth, requireAdmin(), upload.single("file"), controller.importDevices);
-
-  // router.post("/imports/devices", auth, requireRole(Roles.ADMIN), upload.single("file"), async (req, res, next) => {
-  //   const file = (req as any).file as { path?: string } | undefined;
-  //   try {
-  //     await controller.importDevices(req, res, next);
-  //   } finally {
-  //     if (file?.path) await safeUnlink(file.path);
-  //   }
-  // });
+  router.post("/devices", requirePermission(Permissions.DEVICES_IMPORT), requireAdmin(), upload.single("file"), controller.importDevices);
 
   return router;
 }

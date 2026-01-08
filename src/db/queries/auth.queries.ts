@@ -11,6 +11,40 @@ export type DbUser = {
   is_active: number;
 };
 
+/**
+ * מוחק refresh tokens שפגו תוקף או revoked מזמן
+ */
+export async function deleteExpiredRefreshTokens(conn: PoolConnection): Promise<void> {
+  await conn.execute(`
+    DELETE FROM refresh_tokens
+    WHERE expires_at <= NOW()
+       OR (revoked_at IS NOT NULL AND revoked_at < DATE_SUB(NOW(), INTERVAL 30 DAY))
+  `);
+}
+
+/**
+ * מגביל כמות refresh tokens פעילים למשתמש
+ */
+export async function enforceMaxActiveRefreshTokens(conn: PoolConnection, userId: number, maxActive: number): Promise<void> {
+  const [rows] = await conn.query<(RowDataPacket & { id: number })[]>(
+    `
+    SELECT id
+    FROM refresh_tokens
+    WHERE user_id = ?
+      AND revoked_at IS NULL
+      AND expires_at > NOW()
+    ORDER BY issued_at DESC
+    LIMIT 100000 OFFSET ?
+    `,
+    [userId, maxActive]
+  );
+
+  if (rows.length === 0) return;
+
+  const ids = rows.map((r) => r.id);
+  await conn.query(`DELETE FROM refresh_tokens WHERE id IN (?)`, [ids]);
+}
+
 export async function findUserByUsernameOrEmail(db: Pool, value: string): Promise<DbUser | null> {
   const [rows] = await db.query<(DbUser & RowDataPacket)[]>(
     `

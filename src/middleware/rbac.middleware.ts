@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { AppError } from "./error.middleware.js";
-import { Roles, type AuthUser } from "../types/auth.js";
+import { Roles, type AuthUser } from "@/types/auth.js";
 import { can } from "@/rbac/can.js";
 import { Permissions } from "@/types/permissions.js";
 
@@ -14,11 +14,45 @@ function getHierarchyExcludingAdmin(): Roles[] {
   return (Object.values(Roles) as Roles[]).filter((r) => r !== Roles.ADMIN);
 }
 
-/**
- * Rank: 0 = highest, larger = lower.
- */
 function getRank(role: Roles, hierarchy: Roles[]): number {
   return hierarchy.indexOf(role);
+}
+
+/**
+ * requireRoleAtLeast(minRole):
+ * - ADMIN bypasses
+ * - for non-admin roles, compares enum order (hierarchy array)
+ */
+export function requireRoleAtLeast(minRole: AuthUser["role"]) {
+  return function rbacAtLeast(req: Request, _res: Response, next: NextFunction) {
+    const user = req.user as AuthUser | undefined;
+    if (!user) {
+      next(new AppError({ code: "UNAUTHORIZED", status: 401, message: "Unauthorized" }));
+      return;
+    }
+
+    if (user.role === Roles.ADMIN) {
+      next();
+      return;
+    }
+
+    const hierarchy = getHierarchyExcludingAdmin();
+    const userRank = getRank(user.role as Roles, hierarchy);
+    const minRank = getRank(minRole as Roles, hierarchy);
+
+    if (userRank === -1 || minRank === -1) {
+      next(new AppError({ code: "FORBIDDEN", status: 403, message: "Forbidden" }));
+      return;
+    }
+
+    // With 0=highest: user must be <= minRank
+    if (userRank > minRank) {
+      next(new AppError({ code: "FORBIDDEN", status: 403, message: "Forbidden" }));
+      return;
+    }
+
+    next();
+  };
 }
 
 /**
@@ -27,17 +61,14 @@ function getRank(role: Roles, hierarchy: Roles[]): number {
 export function requireAdmin() {
   return function rbacAdmin(req: Request, _res: Response, next: NextFunction) {
     const user = req.user as AuthUser | undefined;
-
     if (!user) {
       next(new AppError({ code: "UNAUTHORIZED", status: 401, message: "Unauthorized" }));
       return;
     }
-
     if (user.role !== Roles.ADMIN) {
-      next(new AppError({ code: "FORBIDDEN 3", status: 403, message: "Forbidden" }));
+      next(new AppError({ code: "FORBIDDEN", status: 403, message: "Forbidden" }));
       return;
     }
-
     next();
   };
 }
@@ -89,53 +120,34 @@ export function requireRole(minRole: AuthUser["role"]) {
 }
 
 /**
- * Allow if:
- * 1) user.role >= minRole (hierarchy)
- * OR
- * 2) user has permission (including overrides)
- *
- * Example:
- * requireRoleOrPermission(Roles.BATTALION_CHIEF_OFFICER, Permissions.DEVICES_UPDATE)
+ * requireRoleOrPermission:
+ * Allows when user has role OR when can(user, permission) is true.
+ * Useful when you want to keep role-based access but also allow overrides.
  */
-export function requireRoleOrPermission(minRole: AuthUser["role"], permission?: Permissions) {
-  return function rbacOrPermission(req: Request, _res: Response, next: NextFunction) {
+export function requireRoleOrPermission(role: Roles, permission: Permissions) {
+  return function rbacRoleOrPerm(req: Request, _res: Response, next: NextFunction) {
     const user = req.user as AuthUser | undefined;
-
     if (!user) {
       next(new AppError({ code: "UNAUTHORIZED", status: 401, message: "Unauthorized" }));
       return;
     }
 
-    // ADMIN always bypasses everything
     if (user.role === Roles.ADMIN) {
       next();
       return;
     }
 
-    if (permission && can(user as any, permission as any)) {
+    if (user.role === role) {
       next();
       return;
     }
 
-    const hierarchy = getHierarchyExcludingAdmin();
-
-    const userRank = getRank(user.role as Roles, hierarchy);
-    const minRank = getRank(minRole as Roles, hierarchy);
-
-    // If role not found in hierarchy => forbid (guards misconfig)
-    if (userRank === -1 || minRank === -1) {
-      next(new AppError({ code: "FORBIDDEN 1", status: 403, message: "Forbidden" }));
+    if (can(user, permission)) {
+      next();
       return;
     }
 
-    // With 0=highest:
-    // user must be <= minRank to be "minRole or higher"
-    if (userRank > minRank) {
-      next(new AppError({ code: "FORBIDDEN 2", status: 403, message: "Forbidden" }));
-      return;
-    }
-
-    next();
+    next(new AppError({ code: "FORBIDDEN", status: 403, message: "Forbidden" }));
   };
 }
 
@@ -148,52 +160,24 @@ export function requireRoleOrPermission(minRole: AuthUser["role"], permission?: 
  *   => ONLY soldier or nco, deputy/chief blocked (ADMIN bypasses).
  */
 export function requireAnyRole(...roles: AuthUser["role"][]) {
+  const allowed = roles;
   return function rbacAny(req: Request, _res: Response, next: NextFunction) {
     const user = req.user as AuthUser | undefined;
-
     if (!user) {
       next(new AppError({ code: "UNAUTHORIZED", status: 401, message: "Unauthorized" }));
       return;
     }
 
-    // ADMIN always bypasses everything
     if (user.role === Roles.ADMIN) {
       next();
       return;
     }
 
-    if (!roles.includes(user.role)) {
-      next(new AppError({ code: "FORBIDDEN 4", status: 403, message: "Forbidden" }));
+    if (!allowed.includes(user.role)) {
+      next(new AppError({ code: "FORBIDDEN", status: 403, message: "Forbidden" }));
       return;
     }
 
     next();
   };
 }
-
-// OLDER CODE:
-// import type { Request, Response, NextFunction } from "express";
-// import { AppError } from "./error.middleware.js";
-// import { Roles, type AuthUser } from "../types/auth.js";
-
-// export function requireRole(...allowed: AuthUser["role"][]) {
-//   return function rbac(req: Request, res: Response, next: NextFunction) {
-//     const user = req.user;
-//     if (!user) {
-//       next(new AppError({ code: "UNAUTHORIZED", status: 401, message: "Unauthorized" }));
-//       return;
-//     }
-
-//     if (user.role === Roles.ADMIN) {
-//       next();
-//       return;
-//     }
-
-//     if (!allowed.includes(user.role)) {
-//       next(new AppError({ code: "FORBIDDEN", status: 403, message: "Forbidden" }));
-//       return;
-//     }
-
-//     next();
-//   };
-// }
