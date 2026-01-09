@@ -1,0 +1,999 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cipher Warehouse — Checklist</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --card:#121a33;
+      --card2:#0f1730;
+      --text:#e9ecf5;
+      --muted:#a9b2d1;
+      --accent:#6ea8fe;
+      --ok:#40c463;
+      --warn:#f4b400;
+      --bad:#ff5a5f;
+      --border:rgba(255,255,255,.08);
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:18px;
+      --radius2:14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      background: radial-gradient(1200px 800px at 20% 10%, rgba(110,168,254,.25), transparent 60%),
+                  radial-gradient(900px 700px at 90% 30%, rgba(64,196,99,.18), transparent 55%),
+                  radial-gradient(900px 700px at 70% 90%, rgba(244,180,0,.12), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+    }
+    .wrap{max-width:1100px;margin:0 auto;padding:22px}
+    header{
+      display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;
+      padding:18px 18px 6px 18px;
+    }
+    .brand{
+      display:flex;gap:12px;align-items:center;
+    }
+    .logo{
+      width:44px;height:44px;border-radius:14px;
+      background: linear-gradient(145deg, rgba(110,168,254,.9), rgba(64,196,99,.65));
+      box-shadow: 0 12px 30px rgba(110,168,254,.15);
+      position:relative; overflow:hidden;
+    }
+    .logo:before{
+      content:""; position:absolute; inset:-30%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent);
+      transform: rotate(25deg);
+      animation: shine 5.5s infinite linear;
+    }
+    @keyframes shine{
+      0%{transform:translateX(-40%) rotate(25deg)}
+      100%{transform:translateX(40%) rotate(25deg)}
+    }
+    h1{font-size:20px;margin:0 0 3px 0;letter-spacing:.2px}
+    .sub{color:var(--muted);font-size:13px;margin:0}
+    .topbar{
+      display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+      background:rgba(18,26,51,.65);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      padding:12px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;
+      border:1px solid var(--border);
+      background: rgba(15,23,48,.9);
+      padding:8px 10px;border-radius:999px;
+      color:var(--text);
+      font-size:13px;
+    }
+    .pill b{font-family:var(--mono);font-weight:600;color:var(--accent)}
+    .btn{
+      appearance:none; border:1px solid var(--border);
+      background: rgba(15,23,48,.95);
+      color:var(--text);
+      padding:9px 12px;
+      border-radius: 12px;
+      font-size:13px;
+      cursor:pointer;
+      transition: transform .06s ease, background .15s ease, border-color .15s ease;
+      user-select:none;
+      display:inline-flex; align-items:center; gap:8px;
+    }
+    .btn:hover{background: rgba(18,26,51,.95); border-color: rgba(110,168,254,.35)}
+    .btn:active{transform: scale(.98)}
+    .btn.primary{
+      background: rgba(110,168,254,.18);
+      border-color: rgba(110,168,254,.45);
+    }
+    .btn.danger{
+      background: rgba(255,90,95,.12);
+      border-color: rgba(255,90,95,.35);
+    }
+    .btn:focus{outline:2px solid rgba(110,168,254,.35); outline-offset:2px}
+    .grid{
+      display:grid; gap:14px;
+      grid-template-columns: 1.1fr .9fr;
+      align-items:start;
+      padding: 0 18px 18px 18px;
+    }
+    @media (max-width: 980px){
+      .grid{grid-template-columns: 1fr}
+      header{padding-bottom:14px}
+    }
+    .card{
+      background: rgba(18,26,51,.72);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      padding:14px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .card h2{
+      margin:0 0 10px 0;
+      font-size:15px;
+      color: #dfe6ff;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .hint{color:var(--muted);font-size:12.5px; margin:0 0 10px 0; line-height:1.5}
+    .progress{
+      display:flex; align-items:center; gap:10px;
+      margin: 0 0 12px 0;
+    }
+    .bar{
+      flex:1; height:10px; border-radius:999px;
+      background: rgba(255,255,255,.07);
+      border:1px solid var(--border);
+      overflow:hidden;
+    }
+    .bar > span{
+      display:block; height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(110,168,254,.85), rgba(64,196,99,.8));
+      border-radius:999px;
+      transition: width .2s ease;
+    }
+    .pct{font-family:var(--mono); font-size:12px; color:var(--muted)}
+    .controls{
+      display:flex; gap:10px; flex-wrap:wrap; margin: 10px 0 0 0;
+    }
+    .search{
+      width:100%;
+      display:flex; gap:10px; align-items:center;
+      border:1px solid var(--border);
+      background: rgba(15,23,48,.85);
+      border-radius: 14px;
+      padding:10px 12px;
+      margin: 10px 0 0 0;
+    }
+    .search input{
+      width:100%;
+      background: transparent;
+      border:0;
+      color:var(--text);
+      font-size:14px;
+      outline:none;
+    }
+    .search .kbd{
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      border:1px solid var(--border);
+      padding:3px 6px;
+      border-radius:8px;
+      background: rgba(255,255,255,.04);
+    }
+    details{
+      border:1px solid var(--border);
+      border-radius: var(--radius2);
+      background: rgba(15,23,48,.55);
+      padding:10px 12px;
+      margin: 10px 0;
+    }
+    summary{
+      cursor:pointer;
+      list-style:none;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      user-select:none;
+      font-size:14px;
+    }
+    summary::-webkit-details-marker{display:none}
+    .tag{
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      white-space:nowrap;
+    }
+    .tag.prod{color: rgba(110,168,254,.95); border-color: rgba(110,168,254,.35); background: rgba(110,168,254,.10)}
+    .tag.general{color: rgba(244,180,0,.95); border-color: rgba(244,180,0,.35); background: rgba(244,180,0,.10)}
+    .tag.critical{color: rgba(255,90,95,.95); border-color: rgba(255,90,95,.40); background: rgba(255,90,95,.10)}
+    .items{margin-top:10px; display:flex; flex-direction:column; gap:10px}
+    .item{
+      display:flex; align-items:flex-start; gap:10px;
+      border:1px solid var(--border);
+      background: rgba(18,26,51,.55);
+      border-radius: 14px;
+      padding:10px 10px;
+    }
+    .item input[type="checkbox"]{
+      width:18px;height:18px;margin-top:2px; accent-color: var(--accent);
+    }
+    .meta{flex:1; min-width:0}
+    .title{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      font-size:14px;
+    }
+    .title strong{font-weight:650}
+    .desc{margin:4px 0 0 0; color: var(--muted); font-size:12.8px; line-height:1.55}
+    .where{margin:6px 0 0 0; font-family: var(--mono); font-size:11.5px; color: rgba(233,236,245,.85)}
+    .where span{color: rgba(110,168,254,.9)}
+    .tiny{font-size:12px;color:var(--muted)}
+    .list{
+      display:flex; flex-direction:column; gap:10px;
+      margin-top:10px;
+    }
+    .idea{
+      border:1px dashed rgba(255,255,255,.14);
+      background: rgba(15,23,48,.35);
+      border-radius: 14px;
+      padding:10px 12px;
+    }
+    .idea h3{margin:0 0 5px 0;font-size:13.5px}
+    .idea p{margin:0;color:var(--muted);font-size:12.8px;line-height:1.55}
+    footer{
+      padding: 0 18px 22px 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .right{margin-inline-start:auto}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Cipher Warehouse — Checklist</h1>
+          <p class="sub">UI פשוט לשמירת התקדמות, חיפוש, סינון ויצוא.</p>
+        </div>
+      </div>
+      <div class="topbar" role="region" aria-label="כלים">
+        <span class="pill">סטטוס: <b id="statusText">טוען…</b></span>
+        <button class="btn primary" id="btnExport">יצוא JSON</button>
+        <button class="btn" id="btnPrint">הדפסה</button>
+        <button class="btn danger" id="btnReset">איפוס</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card" aria-label="צ'קליסט">
+        <h2>
+          צ'קליסט מסודר
+          <span class="tag prod">Production + General</span>
+        </h2>
+
+        <div class="progress" aria-label="התקדמות">
+          <div class="bar" aria-hidden="true"><span id="barFill"></span></div>
+          <div class="pct"><span id="doneCount">0</span>/<span id="totalCount">0</span> (<span id="pct">0</span>%)</div>
+        </div>
+
+        <p class="hint">
+          טיפ: חיפוש עובד על כותרת/תיאור/“איפה בקוד”. אפשר לסנן לפי סוג: Production בלבד / כללי.
+        </p>
+
+        <div class="search">
+          <input id="q" placeholder="חפש… למשל: register, import, rbac, shutdown" autocomplete="off" />
+          <span class="kbd">Ctrl / ⌘ + K</span>
+        </div>
+
+        
+        <div class="controls" aria-label="סינון">
+          <button class="btn" data-filter="all" id="fAll">הכול</button>
+          <button class="btn" data-filter="prod" id="fProd">Production בלבד</button>
+          <button class="btn" data-filter="general" id="fGeneral">כללי (Product)</button>
+          <span class="tiny right" id="filterHint"></span>
+        </div>
+
+        <div class="card" style="margin-top:12px; padding:12px; background: rgba(15,23,48,.45); border-radius: 18px; border:1px solid var(--border);">
+          <div class="row" style="align-items:flex-start">
+            <div style="flex:1; min-width:240px">
+              <div class="tiny" style="margin-bottom:6px; color: var(--muted);">הוספת משימה חדשה</div>
+              <div class="row" style="gap:8px; flex-wrap:wrap">
+                <input id="newTitle" placeholder="כותרת (חובה)"
+                  style="flex:1; min-width:220px; background: rgba(18,26,51,.55); border:1px solid var(--border); color: var(--text); border-radius: 12px; padding:10px 12px; outline:none;" />
+                <select id="newType"
+                  style="background: rgba(18,26,51,.55); border:1px solid var(--border); color: var(--text); border-radius: 12px; padding:10px 12px; outline:none;">
+                  <option value="prod">Production</option>
+                  <option value="general">כללי (Product)</option>
+                </select>
+                <select id="newSeverity"
+                  style="background: rgba(18,26,51,.55); border:1px solid var(--border); color: var(--text); border-radius: 12px; padding:10px 12px; outline:none;">
+                  <option value="warn">Recommended</option>
+                  <option value="critical">Critical</option>
+                  <option value="ok">OK</option>
+                </select>
+              </div>
+              <div class="row" style="margin-top:8px; gap:8px; flex-wrap:wrap">
+                <input id="newCategory" placeholder="קטגוריה (למשל: Users, Imports, Devices)"
+                  style="flex:1; min-width:220px; background: rgba(18,26,51,.55); border:1px solid var(--border); color: var(--text); border-radius: 12px; padding:10px 12px; outline:none;" />
+                <input id="newWhere" placeholder="איפה (קובץ/route/מודול)"
+                  style="flex:1; min-width:220px; background: rgba(18,26,51,.55); border:1px solid var(--border); color: var(--text); border-radius: 12px; padding:10px 12px; outline:none;" />
+              </div>
+              <div class="row" style="margin-top:8px">
+                <textarea id="newDesc" placeholder="תיאור קצר (למה חשוב / מה לעשות)"
+                  style="width:100%; min-height:70px; background: rgba(18,26,51,.55); border:1px solid var(--border); color: var(--text); border-radius: 12px; padding:10px 12px; outline:none; resize:vertical;"></textarea>
+              </div>
+            </div>
+
+            <div style="width:250px; min-width:220px">
+              <div class="tiny" style="margin-bottom:6px; color: var(--muted);">כלים מהירים</div>
+              <div class="list" style="margin-top:0">
+                <button class="btn primary" id="btnAddTask" style="width:100%; justify-content:center">הוסף משימה</button>
+                <button class="btn" id="btnExportAll" style="width:100%; justify-content:center">יצוא הכול (JSON)</button>
+                <button class="btn danger" id="btnClearCustom" style="width:100%; justify-content:center">מחיקת משימות שהוספתי</button>
+              </div>
+              <p class="hint" style="margin-top:10px">
+                המשימות שאתה מוסיף נשמרות מקומית בלבד. אפשר לייצא JSON כדי להעביר/לגבות.
+              </p>
+            </div>
+          </div>
+        </div>
+
+          <button class="btn" data-filter="all" id="fAll">הכול</button>
+          <button class="btn" data-filter="prod" id="fProd">Production בלבד</button>
+          <button class="btn" data-filter="general" id="fGeneral">כללי (Product)</button>
+          <span class="tiny right" id="filterHint"></span>
+        </div>
+
+        <div id="sections"></div>
+      </section>
+
+      <aside class="card" aria-label="רעיונות חשובים">
+        <h2>
+          רעיונות “כמו באפליקציות אחרות” (נחוץ ולא סתם)
+          <span class="tag general">Product</span>
+        </h2>
+        <p class="hint">
+          אלו רעיונות שיכולים להיות רלוונטיים למערכת אמיתית. הם לא מחליפים הקשחות פרודקשן —
+          הם “דברים שחייבים לחשוב עליהם” כדי שהמוצר ירגיש שלם.
+        </p>
+
+        <div class="list" id="ideas"></div>
+
+        <details>
+          <summary>
+            איך להשתמש בזה נכון?
+            <span class="tag">הנחיה</span>
+          </summary>
+          <p class="hint" style="margin-top:10px">
+            1) סמן קודם את הדברים הקריטיים לפרודקשן (Prod).<br/>
+            2) אחר כך תבחר 2–3 רעיונות Product שיש להם ROI גבוה למשתמשים/אדמין.<br/>
+            3) כל שינוי — תוסיף Acceptance Criteria קצר (מתי זה “מוכן”).
+          </p>
+        </details>
+      </aside>
+    </div>
+
+    <footer>
+      נשמר מקומית בדפדפן (LocalStorage). אין צורך בשרת. אפשר לייצא JSON ולשמור ב־Git/Notion.
+    </footer>
+  </div>
+
+<script>
+  // -----------------------------
+  // Data model
+  // -----------------------------
+  const BASE_CHECKLIST = [
+    {
+      id: "prod-import-transaction",
+      category: "Imports (Production)",
+      type: "prod",
+      severity: "ok",
+      title: "Import Devices חייב להיות Transaction אמיתי",
+      desc: "נמצא: הייבוא משתמש ב-conn.beginTransaction() + commit/rollback. עדיין מומלץ לוודא שבכל write path משתמשים באותו conn בתוך הטרנזקציה.",
+      where: "src/services/imports/importDevices.service.ts",
+    },
+    {
+      id: "prod-build-tsconfig",
+      category: "Build/Deploy (Production)",
+      type: "prod",
+      severity: "ok",
+      title: "Build חייב להיות ניתן להרצה (tsconfig.json + npm run build)",
+      desc: "נמצא: tsconfig.json קיים וה-build מוגדר ב-package.json (tsc + tsc-alias). ודא ש-npm run build מצליח בסביבה נקייה.",
+      where: "root: tsconfig.json, package.json",
+    },
+    {
+      id: "prod-secrets-env",
+      category: "Security (Production)",
+      type: "prod",
+      severity: "critical",
+      title: "סודות לא בתוך Git (.env מחוץ לריפו)",
+      desc: "נמצא: .env קיים בתוך הפרויקט. לפרודקשן: להשאיר רק .env.example ולהוסיף .env ל-.gitignore. אם כבר עלה ל-Git — מחליפים סודות.",
+      where: "root: .env, .env.example, .gitignore",
+    },
+    {
+      id: "prod-rbac-rankmap",
+      category: "AUTH/RBAC (Production)",
+      type: "prod",
+      severity: "warn",
+      title: "RBAC לא תלוי בסדר enum (Rank map מפורש)",
+      desc: "בדוק שההשוואה בין Roles לא מבוססת על סדר enum. מומלץ Rank map מפורש כדי למנוע שבירה שקטה בעת הוספת תפקידים.",
+      where: "src/middleware/rbac.middleware.ts",
+    },
+    {
+      id: "prod-request-id",
+      category: "Observability (Production)",
+      type: "prod",
+      severity: "warn",
+      title: "Request ID + לוגים מינימליים (structured)",
+      desc: "להוסיף middleware שמייצר requestId (או קורא מ-X-Request-Id) ולהדפיס אותו בכל שגיאה. מקצר משמעותית זמן תחקור.",
+      where: "middleware חדש + src/middleware/error.middleware.ts",
+    },
+    {
+      id: "prod-cors-403",
+      category: "Security (Production)",
+      type: "prod",
+      severity: "warn",
+      title: "שגיאות CORS מטופלות כ-403 נשלט (לא 500)",
+      desc: "אם Origin לא מורשה, עדיף להחזיר 403 ברור ולוג נקי במקום Error גנרי שמייצר רעש.",
+      where: "src/app.ts",
+    },
+    {
+      id: "prod-db-timeouts",
+      category: "DB Safety (Production)",
+      type: "prod",
+      severity: "warn",
+      title: "DB Pool עם timeouts (מניעת hanging)",
+      desc: "להוסיף connectTimeout/הגדרות רלוונטיות ל-mysql2 כדי לצמצם תליות תחת תקלות רשת/DB.",
+      where: "src/db/pool.ts",
+    },
+    {
+      id: "prod-rate-limit-growth",
+      category: "Security (Production)",
+      type: "prod",
+      severity: "warn",
+      title: "Rate limit in-memory לא גדל לנצח",
+      desc: "אם משתמשים ב-Map בזיכרון, להוסיף ניקוי TTL או לאחסן ב-Redis/WAF. אחרת יש סיכון לזליגת זיכרון תחת הרבה IPs.",
+      where: "src/middleware/rateLimit.middleware.ts",
+    },
+    {
+      id: "prod-write-audit",
+      category: "Write Paths (Production)",
+      type: "prod",
+      severity: "warn",
+      title: "Write Routes אחידים: auth + RBAC + SQL scoping",
+      desc: "למפות כל POST/PUT/PATCH/DELETE ולוודא: auth, permission/role, ואז scoping בתוך SQL (לא רק לוגיקה).",
+      where: "src/routes/* + src/db/scopes/* + src/db/queries/*",
+    },
+    {
+      id: "prod-health",
+      category: "Health/Shutdown (Production)",
+      type: "prod",
+      severity: "ok",
+      title: "Health endpoint עם DB ping ו-503 בעת תקלה",
+      desc: "נמצא /health. ודא שהוא בודק DB בצורה קצרה ומחזיר 503 כשנופל (Readiness אמיתי).",
+      where: "src/routes/index.ts",
+    },
+    {
+      id: "prod-shutdown",
+      category: "Health/Shutdown (Production)",
+      type: "prod",
+      severity: "ok",
+      title: "Graceful shutdown (SIGTERM/SIGINT + pool.end עם timeout)",
+      desc: "נמצא טיפול ב-SIGTERM/SIGINT. ודא שאין בקשות “תלויות” ושסוגרים pool בצורה נקייה בזמן דיפלוי.",
+      where: "src/server.ts",
+    },
+    {
+      id: "gen-user-create-policy",
+      category: "User Management (Product)",
+      type: "general",
+      severity: "warn",
+      title: "יצירת משתמשים: Register או Admin Create (מדיניות אחת ברורה)",
+      desc: "חסר: אין /auth/register כרגע (יש /login,/refresh,/logout). זה בסדר אם יצירת משתמשים היא Admin-only דרך DB/Endpoint פנימי — אבל צריך להגדיר זרימה רשמית ומבוקרת.",
+      where: "src/routes/auth.routes.ts (כיום: /login, /refresh, /logout)",
+    },
+    {
+      id: "gen-user-status",
+      category: "User Management (Product)",
+      type: "general",
+      severity: "ok",
+      title: "סטטוס משתמש: active/suspended (אכיפה ב-login וב-refresh)",
+      desc: "נמצא is_active בסכמה ונראה שיש אכיפה ב-auth service. ודא שגם refresh מכבד סטטוס.",
+      where: "SQL: users.is_active + src/services/auth/auth.service.ts",
+    },
+    {
+      id: "gen-password-reset",
+      category: "User Management (Product)",
+      type: "general",
+      severity: "warn",
+      title: "שכחתי סיסמה (Reset flow) עם טוקן חד-פעמי ו-TTL",
+      desc: "במערכת אמיתית זה flow חובה. טוקן קצר, invalidate אחרי שימוש, ולוג אירוע.",
+      where: "auth routes/services + db: password_reset_tokens",
+    },
+    {
+      id: "gen-email-verify",
+      category: "User Management (Product)",
+      type: "general",
+      severity: "ok",
+      title: "אימות אימייל (Verification) — מומלץ",
+      desc: "לא חובה תמיד, אבל מקטין משתמשי סרק ומעלה אמון. אפשר להתחיל במייל בלבד.",
+      where: "auth service + db: verification_tokens",
+    },
+    {
+      id: "gen-permission-matrix",
+      category: "Admin (Product)",
+      type: "general",
+      severity: "warn",
+      title: "מטריצת הרשאות ברורה (Role/Permission Matrix) + UI/Endpoints לאדמין",
+      desc: "מערכות WMS מצליחות כי יש תפעול ברור. מומלץ endpoints לניהול משתמשים והרשאות + תיעוד קצר.",
+      where: "admin routes/services (אם אין — להוסיף)",
+    },
+    {
+      id: "gen-device-lifecycle",
+      category: "Devices (Product)",
+      type: "general",
+      severity: "warn",
+      title: "Lifecycle למכשיר (סטטוסים במקום מחיקה)",
+      desc: "להגדיר סטטוסים עסקיים (in_stock/assigned/maintenance/lost/retired) וחוקים למעברים.",
+      where: "db schema + device write routes",
+    },
+    {
+      id: "gen-soft-delete",
+      category: "Devices (Product)",
+      type: "general",
+      severity: "warn",
+      title: "Soft-delete (archived_at) במקום DELETE",
+      desc: "מונע איבוד היסטוריה. בפרודקשן מחיקה פיזית מסוכנת.",
+      where: "db schema + services/queries",
+    },
+    {
+      id: "gen-device-history",
+      category: "Devices (Product)",
+      type: "general",
+      severity: "ok",
+      title: "היסטוריית Device (Timeline) / Audit events",
+      desc: "במערכות גדולות כל שינוי נרשם (מי/מתי/מה). אפילו מינימלי נותן ערך עצום.",
+      where: "db: device_events/audit_events + middleware",
+    },
+    {
+      id: "gen-import-runs",
+      category: "Imports (Product)",
+      type: "general",
+      severity: "warn",
+      title: "Import Run: לשמור כל ייבוא כאירוע (מי/מתי/תוצאות)",
+      desc: "מקל תפעול. מאפשר לראות imports אחרונים ושגיאות בלי לקרוא לוגים.",
+      where: "db: import_runs + service",
+    },
+    {
+      id: "gen-import-dry-run",
+      category: "Imports (Product)",
+      type: "general",
+      severity: "ok",
+      title: "Dry-run לייבוא (בדיקה בלי כתיבה) — מומלץ",
+      desc: "מונע טעויות. אפשר flag ?dry_run=1 שמריץ ולידציות בלבד.",
+      where: "import service + route",
+    },
+    {
+      id: "gen-import-idempotency",
+      category: "Imports (Product)",
+      type: "general",
+      severity: "ok",
+      title: "Idempotency לייבוא (מניעת כפילויות בהעלאה כפולה)",
+      desc: "מזהים קובץ לפי hash ושומרים policy למניעת שכפול נתונים.",
+      where: "db: import_runs.file_hash + unique/policy",
+    },
+    {
+      id: "gen-import-report",
+      category: "Imports (Product)",
+      type: "general",
+      severity: "ok",
+      title: "דו\"ח ייבוא להורדה (CSV/JSON)",
+      desc: "משפר שקיפות לאדמין. מסכם הצלחות ושגיאות.",
+      where: "endpoint /imports/:id/report",
+    },
+    {
+      id: "gen-admin-dashboard",
+      category: "Ops/Admin (Product)",
+      type: "general",
+      severity: "ok",
+      title: "Dashboard מינימלי לאדמין",
+      desc: "ספירות, imports אחרונים, שגיאות אחרונות. לא חייב גרפים כבדים.",
+      where: "admin endpoints + minimal UI",
+    },
+    {
+      id: "gen-export-data",
+      category: "Ops/Admin (Product)",
+      type: "general",
+      severity: "ok",
+      title: "Export נתונים (CSV/Excel)",
+      desc: "כל מערכת מחסן אמיתית מאפשרת export לצרכי בקרה/דוחות.",
+      where: "admin endpoints: /export/devices",
+    },
+    {
+      id: "gen-notifications",
+      category: "Ops/Admin (Product)",
+      type: "general",
+      severity: "ok",
+      title: "התראות בסיסיות על תקלות (כשל ייבוא/DB down)",
+      desc: "Webhook/Email מינימלי לאדמין יכול לחסוך שעות.",
+      where: "ops hook / notifications service",
+    },
+  ];
+
+  const IDEAS = [
+    {
+      title: "Onboarding קצר לאדמין",
+      text: "מסביר איך מוסיפים משתמשים, איך מייבאים, ואיך בודקים health — מפחית טעויות תפעול."
+    },
+    {
+      title: "רמות הרשאה ברורות לפי תפקיד",
+      text: "לדוגמה: ADMIN / COMMANDER / SOLDIER, עם פירוט מה כל אחד יכול לבצע בפועל."
+    },
+    {
+      title: "מניעת כפילויות בייבוא (Idempotency)",
+      text: "העלאה כפולה של אותו קובץ לא אמורה לשכפל נתונים. מזהים לפי hash/file id + time window."
+    },
+    {
+      title: "תבנית תגובות API עקבית",
+      text: "מבנה JSON קבוע לשגיאות והצלחות חוסך כאב ראש ללקוח ומקל דיבוג."
+    },
+    {
+      title: "סטטוסים למכשיר במקום מחיקה",
+      text: "soft-delete/archived כדי לא לאבד היסטוריה. בפרודקשן מחיקה פיזית מסוכנת."
+    },
+    {
+      title: "Dashboard מינימלי לאדמין",
+      text: "מספר מכשירים, ייבואים אחרונים, שגיאות אחרונות. לא צריך גרפים כבדים כדי לקבל ערך."
+    },
+    {
+      title: "ניטור מינימלי",
+      text: "איסוף לוגים + requestId + מדדי health. אפילו לפני מערכת APM מלאה."
+    },
+    {
+      title: "מדיניות סיסמה ומחזור סיסמה לאדמין",
+      text: "למשתמשים רגילים אפשר להיות יותר גמיש. לאדמין רצוי חזק יותר."
+    }
+  ];
+
+  // -----------------------------
+  // State & storage
+  // -----------------------------
+  const STORAGE_KEY = "cw_checklist_v2";
+  const CUSTOM_KEY = "cw_custom_tasks_v1";
+  
+  function loadCustomTasks(){
+    try{
+      const raw = localStorage.getItem(CUSTOM_KEY);
+      if(!raw) return [];
+      const parsed = JSON.parse(raw);
+      if(!Array.isArray(parsed)) return [];
+      // minimal sanitation
+      return parsed
+        .filter(x => x && typeof x.id === "string" && typeof x.title === "string")
+        .map(x => ({
+          id: x.id,
+          category: String(x.category || "Custom"),
+          type: (x.type === "prod" || x.type === "general") ? x.type : "general",
+          severity: (x.severity === "critical" || x.severity === "warn" || x.severity === "ok") ? x.severity : "warn",
+          title: String(x.title),
+          desc: String(x.desc || ""),
+          where: String(x.where || "")
+        }));
+    }catch{
+      return [];
+    }
+  }
+
+  function saveCustomTasks(tasks){
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(tasks, null, 2));
+  }
+
+  function getAllItems(){
+    const custom = loadCustomTasks();
+    return [...BASE_CHECKLIST, ...custom];
+  }
+
+const state = {
+    done: new Set(),
+    filter: "all",
+    q: ""
+  };
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return;
+      const parsed = JSON.parse(raw);
+      if(parsed && Array.isArray(parsed.done)) state.done = new Set(parsed.done);
+      if(parsed && typeof parsed.filter === "string") state.filter = parsed.filter;
+      if(parsed && typeof parsed.q === "string") state.q = parsed.q;
+    }catch{}
+  }
+  function save(){
+    const payload = {
+      done: Array.from(state.done),
+      filter: state.filter,
+      q: state.q,
+      updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }
+
+  // -----------------------------
+  // UI helpers
+  // -----------------------------
+  const elSections = document.getElementById("sections");
+  const elIdeas = document.getElementById("ideas");
+  const elDone = document.getElementById("doneCount");
+  const elTotal = document.getElementById("totalCount");
+  const elPct = document.getElementById("pct");
+  const elBar = document.getElementById("barFill");
+  const elStatus = document.getElementById("statusText");
+  const elFilterHint = document.getElementById("filterHint");
+  const elQ = document.getElementById("q");
+
+  function severityTag(sev){
+    if(sev === "critical") return '<span class="tag critical">CRITICAL</span>';
+    if(sev === "warn") return '<span class="tag general">RECOMMENDED</span>';
+    return '<span class="tag prod">OK</span>';
+  }
+
+  function groupByCategory(items){
+    const map = new Map();
+    for(const it of items){
+      if(!map.has(it.category)) map.set(it.category, []);
+      map.get(it.category).push(it);
+    }
+    return map;
+  }
+
+  function matchesQuery(item, q){
+    if(!q) return true;
+    q = q.toLowerCase();
+    const hay = (item.title + " " + item.desc + " " + item.where + " " + item.category).toLowerCase();
+    return hay.includes(q);
+  }
+
+  function passesFilter(item){
+    if(state.filter === "all") return true;
+    return item.type === state.filter;
+  }
+
+  function render(){
+    // filter + query
+    const ALL = getAllItems();
+    const visible = ALL.filter(it => passesFilter(it) && matchesQuery(it, state.q));
+
+    // stats (always based on visible? better: base on all items in current filter)
+    const base = ALL.filter(it => passesFilter(it));
+    const total = base.length;
+    const done = base.reduce((acc, it) => acc + (state.done.has(it.id) ? 1 : 0), 0);
+    const pct = total ? Math.round((done/total)*100) : 0;
+
+    elDone.textContent = String(done);
+    elTotal.textContent = String(total);
+    elPct.textContent = String(pct);
+    elBar.style.width = pct + "%";
+
+    // status text
+    if(pct === 100) elStatus.textContent = "הושלם";
+    else if(pct >= 70) elStatus.textContent = "כמעט";
+    else if(pct >= 35) elStatus.textContent = "בתהליך";
+    else elStatus.textContent = "התחלה";
+
+    // hint
+    const filterLabel = state.filter === "all" ? "הכול" : (state.filter === "prod" ? "Production בלבד" : "כללי (Product)");
+    elFilterHint.textContent = `סינון: ${filterLabel} • מציג: ${visible.length} פריטים`;
+
+    // render sections
+    elSections.innerHTML = "";
+    const grouped = groupByCategory(visible);
+
+    for(const [category, items] of grouped.entries()){
+      const d = document.createElement("details");
+      d.open = true;
+
+      const prodCount = items.filter(i => i.type === "prod").length;
+      const genCount = items.filter(i => i.type === "general").length;
+      const tags = [];
+      if(prodCount) tags.push('<span class="tag prod">PROD</span>');
+      if(genCount) tags.push('<span class="tag general">GENERAL</span>');
+
+      const sum = document.createElement("summary");
+      sum.innerHTML = `<span>${category}</span><span style="display:flex;gap:8px;align-items:center">${tags.join("")}<span class="tag">${items.length} items</span></span>`;
+      d.appendChild(sum);
+
+      const list = document.createElement("div");
+      list.className = "items";
+
+      for(const it of items){
+        const item = document.createElement("div");
+        item.className = "item";
+
+        const checked = state.done.has(it.id);
+        item.innerHTML = `
+          <input type="checkbox" ${checked ? "checked" : ""} aria-label="סמן כבוצע" data-id="${it.id}" />
+          <div class="meta">
+            <div class="title">
+              <strong>${it.title}</strong>
+              ${severityTag(it.severity)}
+            </div>
+            <p class="desc">${it.desc}</p>
+            <p class="where">איפה: <span>${it.where}</span></p>
+          </div>
+        `;
+        list.appendChild(item);
+      }
+
+      d.appendChild(list);
+      elSections.appendChild(d);
+    }
+
+    // wire checkbox handlers
+    elSections.querySelectorAll('input[type="checkbox"][data-id]').forEach(cb => {
+      cb.addEventListener("change", (e) => {
+        const id = e.target.getAttribute("data-id");
+        if(e.target.checked) state.done.add(id);
+        else state.done.delete(id);
+        save();
+        render();
+      });
+    });
+  }
+
+  function renderIdeas(){
+    elIdeas.innerHTML = "";
+    for(const idea of IDEAS){
+      const div = document.createElement("div");
+      div.className = "idea";
+      div.innerHTML = `<h3>${idea.title}</h3><p>${idea.text}</p>`;
+      elIdeas.appendChild(div);
+    }
+  }
+
+  // -----------------------------
+  // Actions
+  // -----------------------------
+  function setFilter(f){
+    state.filter = f;
+    save();
+    render();
+    // button states
+    document.querySelectorAll("[data-filter]").forEach(b => {
+      b.classList.toggle("primary", b.getAttribute("data-filter") === state.filter);
+    });
+  }
+
+  document.getElementById("fAll").addEventListener("click", () => setFilter("all"));
+  document.getElementById("fProd").addEventListener("click", () => setFilter("prod"));
+  document.getElementById("fGeneral").addEventListener("click", () => setFilter("general"));
+
+  document.getElementById("btnReset").addEventListener("click", () => {
+    const ok = confirm("לאפס את כל הסימונים וההעדפות?");
+    if(!ok) return;
+    state.done = new Set();
+    state.filter = "all";
+    state.q = "";
+    localStorage.removeItem(STORAGE_KEY);
+    elQ.value = "";
+    setFilter("all");
+    render();
+  });
+
+  document.getElementById("btnPrint").addEventListener("click", () => window.print());
+
+  document.getElementById("btnExport").addEventListener("click", () => {
+    const payload = {
+      meta: {
+        app: "Cipher Warehouse Checklist",
+        exportedAt: new Date().toISOString(),
+        filter: state.filter
+      },
+      done: Array.from(state.done),
+      items: getAllItems()
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "cipher-warehouse-checklist.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  });
+
+  elQ.addEventListener("input", (e) => {
+    state.q = e.target.value.trim();
+    save();
+    render();
+  });
+
+  // Ctrl/⌘ + K focuses search
+  window.addEventListener("keydown", (e) => {
+    const isMac = navigator.platform.toLowerCase().includes("mac");
+    if((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === "k"){
+      e.preventDefault();
+      elQ.focus();
+    }
+  });
+
+
+  // Add custom task
+  const elNewTitle = document.getElementById("newTitle");
+  const elNewType = document.getElementById("newType");
+  const elNewSeverity = document.getElementById("newSeverity");
+  const elNewCategory = document.getElementById("newCategory");
+  const elNewWhere = document.getElementById("newWhere");
+  const elNewDesc = document.getElementById("newDesc");
+
+  function makeId(){
+    return "custom-" + Math.random().toString(16).slice(2) + "-" + Date.now().toString(16);
+  }
+
+  document.getElementById("btnAddTask").addEventListener("click", () => {
+    const title = (elNewTitle.value || "").trim();
+    if(!title){
+      alert("כותרת היא חובה.");
+      elNewTitle.focus();
+      return;
+    }
+    const task = {
+      id: makeId(),
+      category: (elNewCategory.value || "").trim() || "Custom",
+      type: elNewType.value,
+      severity: elNewSeverity.value,
+      title,
+      desc: (elNewDesc.value || "").trim(),
+      where: (elNewWhere.value || "").trim()
+    };
+    const tasks = loadCustomTasks();
+    tasks.push(task);
+    saveCustomTasks(tasks);
+
+    // clear inputs
+    elNewTitle.value = "";
+    elNewCategory.value = "";
+    elNewWhere.value = "";
+    elNewDesc.value = "";
+
+    render();
+    alert("נוסף.");
+  });
+
+  document.getElementById("btnClearCustom").addEventListener("click", () => {
+    const ok = confirm("למחוק את כל המשימות שהוספת? (לא מוחק את המובנה)");
+    if(!ok) return;
+    localStorage.removeItem(CUSTOM_KEY);
+    // also remove done flags for custom ids (best-effort)
+    const keep = new Set(getAllItems().map(x => x.id));
+    state.done = new Set(Array.from(state.done).filter(id => keep.has(id)));
+    save();
+    render();
+  });
+
+  document.getElementById("btnExportAll").addEventListener("click", () => {
+    const payload = {
+      meta: {
+        app: "Cipher Warehouse Checklist",
+        exportedAt: new Date().toISOString(),
+        filter: state.filter
+      },
+      done: Array.from(state.done),
+      items: getAllItems(),
+      customTasks: loadCustomTasks()
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "cipher-warehouse-checklist-all.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  });
+
+
+  // -----------------------------
+  // Init
+  // -----------------------------
+  load();
+  elQ.value = state.q || "";
+  renderIdeas();
+  setFilter(state.filter || "all");
+  render();
+</script>
+</body>
+</html>

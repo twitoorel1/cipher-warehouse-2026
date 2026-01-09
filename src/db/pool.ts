@@ -1,6 +1,5 @@
 import mysql from "mysql2/promise";
 import type { Pool } from "mysql2/promise";
-// import type { AppEnv } from "../config/env";
 import type { AppEnv } from "../config/env.js";
 
 export function createDbPool(env: AppEnv): Pool {
