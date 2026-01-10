@@ -1,5 +1,5 @@
 import "express";
-import { Roles } from "../types/auth";
+import { Roles, PermissionOverride } from "../types/auth";
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -10,5 +10,6 @@ declare module "express-serve-static-core" {
       division_id: number | null;
       permissionOverrides: PermissionOverride[];
     };
+    requestId?: string;
   }
 }

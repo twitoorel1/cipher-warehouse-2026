@@ -12,6 +12,9 @@ import momentTimezone from "moment-timezone";
 import { harden } from "./middleware/security.middleware.js";
 import createMainRouter from "./routes/index.js";
 import { auditWriteRoutes } from "./utils/writeRoutesAudit.js";
+import { requestContext } from "./middleware/requestContext.middleware.js";
+import { accessLog } from "./middleware/accessLog.middleware.js";
+import { auditWritePaths } from "./middleware/audit.middleware.js";
 
 export const createApp = (env: AppEnv, pool: Pool) => {
   const app = express();
@@ -27,7 +30,19 @@ export const createApp = (env: AppEnv, pool: Pool) => {
   }
 
   // Middlewares
-  harden(app);
+  app.set("trust proxy", 1); // אם מאחורי פרוקסי (למשל ב-heroku) – לקבלת ה-ip הנכון
+
+  // Correlation id + access logs must run early
+  app.use(requestContext());
+  app.use(
+    auditWritePaths({
+      ignorePaths: ["/health"], // תוסיף כאן אם יש לך endpoints "רועשים"
+      slowRequestThresholdMs: 1200, // אפשר לכוון; 1200ms סביר כbaseline
+    })
+  );
+  app.use(accessLog());
+
+  harden(app, env);
   app.use(
     cors({
       origin: (origin, cb) => {
@@ -41,9 +56,9 @@ export const createApp = (env: AppEnv, pool: Pool) => {
 
   app.use(express.static(path.join(__dirname, "public")));
   app.use(rateLimit());
-  app.use(express.json({ limit: "1mb" }));
-  app.use(express.raw());
-  app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+  app.use(express.json({ limit: "10mb" }));
+  +app.use(express.raw({ type: "application/octet-stream", limit: "10mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
   app.use(cookieParser());
 
   app.use(createMainRouter(pool, env));

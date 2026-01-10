@@ -1,4 +1,5 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
+import { BoundedTtlCache } from "@/utils/boundedTtlCache.js";
 
 export type PermissionOverrideEffect = "ALLOW" | "DENY";
 
@@ -7,13 +8,21 @@ export type PermissionOverride = {
   effect: PermissionOverrideEffect;
 };
 
-type CacheEntry = {
-  overrides: PermissionOverride[];
-  expiresAt: number; // epoch ms
-};
-
-const cache = new Map<number, CacheEntry>();
+/**
+ * In-memory cache hardening:
+ * - TTL per user
+ * - Bounded size cap to prevent unbounded growth
+ * - Opportunistic sweeps on access (no background timers)
+ */
 const DEFAULT_TTL_MS = 60_000;
+const MAX_USERS_CACHED = 10_000;
+const SWEEP_INTERVAL_MS = 30_000;
+
+const cache = new BoundedTtlCache<number, PermissionOverride[]>({
+  defaultTtlMs: DEFAULT_TTL_MS,
+  maxSize: MAX_USERS_CACHED,
+  sweepIntervalMs: SWEEP_INTERVAL_MS,
+});
 
 function nowMs() {
   return Date.now();
@@ -46,17 +55,11 @@ async function loadOverridesFromDb(pool: Pool, userId: number): Promise<Permissi
 }
 
 export async function loadPermissionOverridesCached(pool: Pool, userId: number, ttlMs: number = DEFAULT_TTL_MS): Promise<PermissionOverride[]> {
-  const hit = cache.get(userId);
   const t = nowMs();
-
-  if (hit && hit.expiresAt > t) return hit.overrides;
+  const hit = cache.get(userId, t);
+  if (hit) return hit;
 
   const overrides = await loadOverridesFromDb(pool, userId);
-
-  cache.set(userId, {
-    overrides,
-    expiresAt: t + ttlMs,
-  });
-
+  cache.set(userId, overrides, ttlMs, t);
   return overrides;
 }

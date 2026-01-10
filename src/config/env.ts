@@ -39,6 +39,7 @@ function loadDotEnvFile(): void {
 }
 
 export type AppEnv = {
+  nodeEnv?: "development" | "production" | "test";
   port: number;
   corsOrigins: string[];
   db: {
@@ -60,6 +61,9 @@ export type AppEnv = {
 
 export function loadEnv(): AppEnv {
   loadDotEnvFile();
+
+  const nodeEnvRaw = (process.env.NODE_ENV ?? "development").toLowerCase();
+  const nodeEnv = nodeEnvRaw === "production" || nodeEnvRaw === "test" || nodeEnvRaw === "development" ? (nodeEnvRaw as "development" | "test" | "production") : "development";
 
   const portRaw = process.env.PORT ?? "4000";
   const port = Number(portRaw);
@@ -101,6 +105,7 @@ export function loadEnv(): AppEnv {
   if (!Number.isFinite(refreshTtlDays) || refreshTtlDays <= 0) throw new Error("Invalid REFRESH_TOKEN_TTL_DAYS");
 
   return {
+    nodeEnv,
     port,
     corsOrigins,
     db: {

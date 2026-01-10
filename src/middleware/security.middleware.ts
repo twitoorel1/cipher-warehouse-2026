@@ -1,14 +1,16 @@
 import helmet from "helmet";
 import type { Express } from "express";
+import type { AppEnv } from "@/config/env.js";
 
-export function harden(app: Express) {
+export function harden(app: Express, env: AppEnv) {
   app.disable("x-powered-by");
 
-  const isProd = process.env.NODE_ENV === "production";
-  const corsOrigins = (process.env.CORS_ORIGINS || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const isProd = env.nodeEnv === "production";
+  const corsOrigins = env.corsOrigins;
+  // const corsOrigins = (process.env.CORS_ORIGINS || "")
+  // .split(",")
+  // .map((s) => s.trim())
+  // .filter(Boolean);
 
   app.use(
     helmet({
