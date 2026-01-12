@@ -3,7 +3,6 @@ import type { Pool } from "mysql2/promise";
 import { AppError } from "@middleware/error.middleware.js";
 import { importDevicesInventoryExcel } from "@services/imports/importDevices.service.js";
 import fs from "node:fs/promises";
-import path from "node:path";
 
 type MulterFile = Express.Multer.File;
 

@@ -1,10 +1,10 @@
 import type { Pool } from "mysql2/promise";
 import * as XLSXNS from "xlsx";
-const XLSX = (XLSXNS as unknown as { default?: typeof XLSXNS }).default ?? XLSXNS;
-import { z } from "zod";
+const XLSX: typeof XLSXNS = (XLSXNS as any).default ?? XLSXNS;
+
 import { importInventoryRowSchema, type ImportInventoryRow, storageSiteRegex } from "../../validators/importDevices.schemas.js";
-import { deviceTypeByMakat } from "../../config/deviceTypeByMakat.js";
-import { getCoreDeviceStateBySerial, insertCoreDevice, updateCoreDeviceInventoryOnly, markRemovedMissingSerials, getOrCreateStorageUnitIdBySite, getEncryptionModelIdByMakat, ImportScope } from "../../db/queries/importDevices.queries.js";
+import { getCoreDeviceStateBySerial, insertCoreDevice, updateCoreDeviceInventoryOnly, markRemovedMissingSerials, getOrCreateStorageUnitIdBySite, getEncryptionModelIdByMakat, type ImportScope } from "../../db/queries/importDevices.queries.js";
+
 import { AppError } from "../../middleware/error.middleware.js";
 import type { ImportDevicesResponse, ImportErrorItem } from "../../types/imports.js";
 
@@ -22,15 +22,48 @@ function extractStorageSite(raw: string): string | null {
   return null;
 }
 
-function pickExcelFields(obj: Record<string, any>) {
-  const get = (...keys: string[]) => keys.map((k) => obj[k]).find((v) => v !== undefined);
+function normHeader(v: any) {
+  return String(v ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
 
-  return {
-    storageRaw: get("אתר אחסון", "אתר"),
-    deviceName: get("תיאור החומר", "תיאור"),
-    makat: get("חומר", "מקט"),
-    serial: get("מספר סיריאלי", "מספר סידורי", "Serial"),
-  };
+// Supports merged headers: when a merged header spans multiple columns,
+// Excel often leaves subsequent header cells blank.
+// forwardFill assigns the last non-empty header to empty cells.
+function forwardFillHeaders(headers: any[]): string[] {
+  const out: string[] = [];
+  let last = "";
+  for (const h of headers) {
+    const n = normHeader(h);
+    if (n) last = n;
+    out.push(last);
+  }
+  return out;
+}
+
+function findHeaderIndices(ffHeaders: string[], wanted: string): number[] {
+  const w = normHeader(wanted);
+  const idx: number[] = [];
+  for (let i = 0; i < ffHeaders.length; i++) {
+    if (ffHeaders[i] === w) idx.push(i);
+  }
+  return idx;
+}
+
+function getCell(row: any[], idx: number) {
+  if (!row) return "";
+  if (idx < 0 || idx >= row.length) return "";
+  return row[idx];
+}
+
+function s(v: any) {
+  return String(v ?? "").trim();
+}
+
+function u(v: any) {
+  return s(v).toUpperCase();
 }
 
 export async function importDevicesInventoryExcel(pool: Pool, filePath: string, scope: ImportScope): Promise<ImportDevicesResponse> {
@@ -39,6 +72,7 @@ export async function importDevicesInventoryExcel(pool: Pool, filePath: string, 
 
   const workbook = XLSX.readFile(filePath, { cellDates: false });
   const sheetName = workbook.SheetNames[0];
+
   if (!sheetName) {
     return {
       processed: 0,
@@ -62,14 +96,57 @@ export async function importDevicesInventoryExcel(pool: Pool, filePath: string, 
     throw new AppError({ code: "VALIDATION_ERROR", status: 400, message: "The first sheet in the file is not available for reading." });
   }
 
-  const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
-  if (!Array.isArray(rawRows) || rawRows.length === 0) {
+  // Read as matrix to avoid problems with duplicated / merged headers
+  const matrix = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" }) as any[][];
+  if (!Array.isArray(matrix) || matrix.length <= 1) {
     throw new AppError({ code: "VALIDATION_ERROR", status: 400, message: "The first sheet is empty or not in a supported format." });
   }
 
-  if (rawRows.length > MAX_ROWS) {
+  const headersRow = (matrix[0] ?? []) as any[];
+  const dataRows = matrix.slice(1);
+
+  if (dataRows.length > MAX_ROWS) {
     throw new AppError({ code: "VALIDATION_ERROR", status: 400, message: `Too many rows. Max allowed is ${MAX_ROWS}.` });
   }
+
+  const ffHeaders = forwardFillHeaders(headersRow);
+
+  // We expect merged pairs:
+  // - "אתר אחסון" => 2 columns (code + name)
+  // - "חומר" => 2 columns (makat + device_name)
+  // - "צ'" => 1 column (serial)
+  const storageIdx = findHeaderIndices(ffHeaders, "אתר אחסון");
+  const materialIdx = findHeaderIndices(ffHeaders, "חומר");
+  const serialIdxList = findHeaderIndices(ffHeaders, "צ'");
+
+  if (storageIdx.length < 2) {
+    throw new AppError({
+      code: "VALIDATION_ERROR",
+      status: 400,
+      message: 'Excel headers are missing a merged pair for "אתר אחסון" (expected 2 columns).',
+    });
+  }
+  if (materialIdx.length < 2) {
+    throw new AppError({
+      code: "VALIDATION_ERROR",
+      status: 400,
+      message: 'Excel headers are missing a merged pair for "חומר" (expected 2 columns).',
+    });
+  }
+  if (serialIdxList.length < 1) {
+    throw new AppError({
+      code: "VALIDATION_ERROR",
+      status: 400,
+      message: 'Excel headers are missing column "צ\'" (serial).',
+    });
+  }
+
+  // Fix TypeScript: after guardrails, assert as non-null numbers
+  const storageCodeIdx: number = storageIdx[0]!;
+  const storageNameIdx: number = storageIdx[1]!;
+  const makatIdx: number = materialIdx[0]!;
+  const deviceNameIdx: number = materialIdx[1]!;
+  const serialIdx: number = serialIdxList[0]!;
 
   let processed = 0;
   let inserted = 0;
@@ -84,26 +161,27 @@ export async function importDevicesInventoryExcel(pool: Pool, filePath: string, 
   try {
     await conn.beginTransaction();
 
-    for (let i = 0; i < rawRows.length; i++) {
-      const excelRow = rawRows[i] as Record<string, any>;
-      const rowNumber = i + 2; // header is row 1
+    for (let i = 0; i < dataRows.length; i++) {
+      const rowArr = dataRows[i] as any[];
+      const rowNumber = i + 2; // headers are row 1
 
       try {
-        const { storageRaw, deviceName, makat, serial } = pickExcelFields(excelRow);
+        const storageSiteCode = u(getCell(rowArr, storageCodeIdx)); // MG01
+        const storageUnitName = s(getCell(rowArr, storageNameIdx)); // name/description
+        const makat = s(getCell(rowArr, makatIdx)); // makat (J)
+        const deviceName = s(getCell(rowArr, deviceNameIdx)); // device_name (K)
+        const serial = u(getCell(rowArr, serialIdx)); // serial (צ')
 
-        const storage_unit_raw = String(storageRaw ?? "").trim();
-        const extractedSite = extractStorageSite(storage_unit_raw);
+        // Minimal safe fallbacks (do not guess other unrelated columns)
+        const storage_site_raw = storageSiteCode || u(extractStorageSite(storageUnitName) ?? "");
+        const storage_unit_raw = storageUnitName || storage_site_raw;
 
         const candidate: Partial<ImportInventoryRow> = {
-          serial: String(serial ?? "")
-            .trim()
-            .toUpperCase(),
-          makat: String(makat ?? "").trim(),
-          device_name: String(deviceName ?? "").trim(),
+          serial,
+          makat,
+          device_name: deviceName,
           storage_unit_raw,
-          storage_site: String(extractedSite ?? "")
-            .trim()
-            .toUpperCase(),
+          storage_site: storage_site_raw, // use code column directly (best)
         };
 
         const parsed = importInventoryRowSchema.safeParse(candidate);
@@ -122,13 +200,14 @@ export async function importDevicesInventoryExcel(pool: Pool, filePath: string, 
 
         const row = parsed.data;
 
-        // de-dupe serials inside file
+        // de-dupe serials inside the file
         if (presentSerialsSet.has(row.serial)) continue;
 
         processed++;
         presentSerialsSet.add(row.serial);
         storageSitesSet.add(row.storage_site);
 
+        // Keep existing behavior: create storage unit if missing, update name if exists
         const unitId = await getOrCreateStorageUnitIdBySite(conn, {
           storage_site: row.storage_site,
           unit_name: row.storage_unit_raw,
@@ -152,7 +231,7 @@ export async function importDevicesInventoryExcel(pool: Pool, filePath: string, 
             row_number: rowNumber,
             code: "ROW_FAILED",
             message: e?.message ? String(e.message) : "Unknown error",
-            fields: { excelRow },
+            fields: { row: rowArr },
           });
         }
         continue;

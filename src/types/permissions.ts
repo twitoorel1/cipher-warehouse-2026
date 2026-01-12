@@ -39,4 +39,15 @@ export enum Permissions {
   // Audit
   // =========================
   AUDIT_READ = "audit.read",
+
+  // =========================
+  // Tel100 Profiles
+  // =========================
+  TEL100_VOICE_PROFILE_READ = "tel100.voice.profile.read",
+  TEL100_VOICE_PROFILE_UPDATE = "tel100.voice.profile.update",
+  TEL100_VOICE_PROFILE_READ_SENSITIVE = "tel100.voice.profile.read_sensitive",
+
+  TEL100_MODEM_PROFILE_READ = "tel100.modem.profile.read",
+  TEL100_MODEM_PROFILE_UPDATE = "tel100.modem.profile.update",
+  TEL100_MODEM_PROFILE_READ_SENSITIVE = "tel100.modem.profile.read_sensitive",
 }

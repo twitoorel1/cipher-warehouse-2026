@@ -79,6 +79,63 @@ function appendScope(whereParts: string[], params: any[], user: AuthUser) {
   }
 }
 
+export type DeviceDbPatch = {
+  makat?: string;
+  device_name?: string;
+  encryption_model_id?: number | null;
+  battery_life?: string | null; // YYYY-MM-01 or NULL
+  lifecycle_status?: string;
+};
+
+export async function updateDeviceByIdScoped(pool: Pool, id: number, patch: DeviceDbPatch, user: AuthUser): Promise<boolean> {
+  const setParts: string[] = [];
+  const params: any[] = [];
+
+  if (patch.makat !== undefined) {
+    setParts.push("d.makat = ?");
+    params.push(patch.makat);
+  }
+  if (patch.device_name !== undefined) {
+    setParts.push("d.device_name = ?");
+    params.push(patch.device_name);
+  }
+  if (patch.encryption_model_id !== undefined) {
+    setParts.push("d.encryption_model_id = ?");
+    params.push(patch.encryption_model_id);
+  }
+  if (patch.battery_life !== undefined) {
+    setParts.push("d.battery_life = ?");
+    params.push(patch.battery_life);
+  }
+  if (patch.lifecycle_status !== undefined) {
+    setParts.push("d.lifecycle_status = ?");
+    params.push(patch.lifecycle_status);
+  }
+
+  if (setParts.length === 0) return false;
+
+  const whereParts: string[] = ["d.id = ?", "d.deleted_at IS NULL"];
+  const whereParams: any[] = [id];
+
+  // Enforce scope using CURRENT unit of device (same as reads) — alias u is required by coreDeviceScope
+  const scope = coreDeviceScope(user);
+  if (scope.clause && scope.clause.trim()) {
+    whereParts.push(`(${scope.clause})`);
+    whereParams.push(...scope.params);
+  }
+
+  const sql = `
+    UPDATE core_device d
+    LEFT JOIN storage_units u ON u.id = d.current_unit_id
+    SET ${setParts.join(", ")}
+    WHERE ${whereParts.join(" AND ")}
+  `;
+
+  const [result] = await pool.query(sql, [...params, ...whereParams]);
+  const affected = Number((result as any)?.affectedRows ?? 0);
+  return affected > 0;
+}
+
 export async function getDeviceCardBySerial(pool: Pool, serial: string, user: AuthUser): Promise<DeviceCardRow | null> {
   const s = String(serial).trim();
   if (!s) throw new Error("serial is required");

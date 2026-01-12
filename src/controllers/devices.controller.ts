@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import type { Pool } from "mysql2/promise";
 import { AppError } from "@middleware/error.middleware.js";
-import { devicesListQuerySchema, deviceIdParamSchema } from "@validators/devices.schemas.js";
-import { getDeviceCardBySerialService, getDeviceDetails, getDevicesList } from "@services/devices/devices.service.js";
+import { devicesListQuerySchema, deviceIdParamSchema, devicePatchSchema } from "@validators/devices.schemas.js";
+import { getDeviceCardBySerialService, getDeviceDetails, getDevicesList, updateDeviceByIdService } from "@services/devices/devices.service.js";
 import { AuthUser } from "@/types/auth.js";
 
 export function createDevicesController(pool: Pool) {
@@ -76,6 +76,67 @@ export function createDevicesController(pool: Pool) {
         const user = (req as any).user as AuthUser;
         const data = await getDevicesList(pool, parsed.data, user);
         res.status(200).json(data);
+      } catch (e) {
+        return next(e);
+      }
+    },
+
+    getTell100Devices: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const user = (req as any).user as AuthUser;
+        res.status(200).json(user);
+      } catch (e) {
+        return next(e);
+      }
+    },
+
+    updateById: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const parsedParams = deviceIdParamSchema.safeParse(req.params);
+        if (!parsedParams.success) {
+          next(
+            new AppError({
+              code: "VALIDATION_ERROR",
+              status: 400,
+              message: "Invalid device ID parameter",
+              details: parsedParams.error.flatten(),
+            })
+          );
+          return;
+        }
+
+        if (req.body && ("serial" in req.body || "current_unit_id" in req.body)) {
+          next(
+            new AppError({
+              code: "VALIDATION_ERROR",
+              status: 400,
+              message: "serial/current_unit_id cannot be updated via this endpoint",
+            })
+          );
+          return;
+        }
+
+        const parsedBody = devicePatchSchema.safeParse(req.body ?? {});
+        if (!parsedBody.success) {
+          next(
+            new AppError({
+              code: "VALIDATION_ERROR",
+              status: 400,
+              message: "Invalid request body",
+              details: parsedBody.error.flatten(),
+            })
+          );
+          return;
+        }
+
+        const user = (req as any).user as AuthUser;
+        const updated = await updateDeviceByIdService(pool, parsedParams.data.id, parsedBody.data, user);
+        if (!updated) {
+          next(new AppError({ code: "NOT_FOUND", status: 404, message: "Device not found" }));
+          return;
+        }
+
+        res.status(200).json({ ...updated.device, manual: null });
       } catch (e) {
         return next(e);
       }

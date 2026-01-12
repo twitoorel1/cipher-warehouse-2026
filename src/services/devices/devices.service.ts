@@ -1,6 +1,6 @@
 import type { Pool } from "mysql2/promise";
-import type { DevicesListQuery } from "@validators/devices.schemas.js";
-import { getDeviceCardBySerial, getUnitSymbolForFamilyAndUnit, getActivePeriodsForFamily, getDeviceById, countDevices, listDevices } from "@db/queries/devices.queries.js";
+import type { DevicePatchBody, DevicesListQuery } from "@validators/devices.schemas.js";
+import { getDeviceCardBySerial, getUnitSymbolForFamilyAndUnit, getActivePeriodsForFamily, getDeviceById, countDevices, listDevices, updateDeviceByIdScoped } from "@db/queries/devices.queries.js";
 import { CoreDeviceRow } from "@/types/devices.js";
 import { AuthUser } from "@/types/auth.js";
 
@@ -35,6 +35,48 @@ export type DeviceCardResponse = {
     };
   };
 };
+
+function parseMmYYYYToISODate(monthYear: string): string {
+  const m = String(monthYear).trim();
+  const mm = Number(m.slice(0, 2));
+  const yyyy = Number(m.slice(3));
+  if (!Number.isInteger(mm) || mm < 1 || mm > 12 || !Number.isInteger(yyyy) || yyyy < 1900 || yyyy > 2100) {
+    throw new Error("battery_life must be in MM/YYYY");
+  }
+  const mmStr = String(mm).padStart(2, "0");
+  return `${yyyy}-${mmStr}-01`;
+}
+
+export async function updateDeviceByIdService(pool: Pool, id: number, patch: DevicePatchBody, user: AuthUser): Promise<DeviceCardResponse | null> {
+  const dbPatch: {
+    makat?: string;
+    device_name?: string;
+    encryption_model_id?: number | null;
+    battery_life?: string | null;
+    lifecycle_status?: DevicePatchBody["lifecycle_status"];
+  } = {};
+
+  if (patch.makat !== undefined) dbPatch.makat = patch.makat;
+  if (patch.device_name !== undefined) dbPatch.device_name = patch.device_name;
+  if (patch.encryption_model_id !== undefined) dbPatch.encryption_model_id = patch.encryption_model_id;
+  if (patch.lifecycle_status !== undefined) dbPatch.lifecycle_status = patch.lifecycle_status;
+
+  if (patch.battery_life !== undefined) {
+    if (patch.battery_life === null) {
+      dbPatch.battery_life = null;
+    } else {
+      dbPatch.battery_life = parseMmYYYYToISODate(patch.battery_life);
+    }
+  }
+
+  // Remove undefined properties to match DeviceDbPatch type
+  const cleanDbPatch = Object.fromEntries(Object.entries(dbPatch).filter(([_, value]) => value !== undefined));
+
+  const changed = await updateDeviceByIdScoped(pool, id, cleanDbPatch, user);
+  if (!changed) return null;
+
+  return await getDeviceDetails(pool, id, user);
+}
 
 export async function getDeviceCardBySerialService(pool: Pool, serial: string, user: AuthUser): Promise<DeviceCardResponse | null> {
   const row = await getDeviceCardBySerial(pool, serial, user);
