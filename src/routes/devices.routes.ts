@@ -17,7 +17,10 @@ export function createDevicesRouter(pool: Pool, env: AppEnv) {
 
   router.patch("/by-id/:id", requirePermission(Permissions.DEVICES_UPDATE), controller.updateById);
 
-  router.get("/tel100", requirePermission(Permissions.DEVICES_READ), controller.getTell100Devices);
+  router.get("/tel100", requirePermission(Permissions.TEL100_VOICE_PROFILE_READ), controller.getTell100Devices);
+
+  router.get("/tel100/:id/voice-profile", requirePermission(Permissions.DEVICES_READ), controller.getTel100VoiceProfile);
+  router.get("/tel100/:id/modem-profile", requirePermission(Permissions.DEVICES_READ), controller.getTel100ModemProfile);
 
   return router;
 }

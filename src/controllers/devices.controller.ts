@@ -4,6 +4,7 @@ import { AppError } from "@middleware/error.middleware.js";
 import { devicesListQuerySchema, deviceIdParamSchema, devicePatchSchema } from "@validators/devices.schemas.js";
 import { getDeviceCardBySerialService, getDeviceDetails, getDevicesList, updateDeviceByIdService } from "@services/devices/devices.service.js";
 import { AuthUser } from "@/types/auth.js";
+import { getDevicesList, getTel100DevicesList, getDeviceCardBySerialService, getDeviceDetails, updateDeviceByIdService } from "@services/devices/devices.service.js";
 
 export function createDevicesController(pool: Pool) {
   return {
@@ -81,15 +82,6 @@ export function createDevicesController(pool: Pool) {
       }
     },
 
-    getTell100Devices: async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const user = (req as any).user as AuthUser;
-        res.status(200).json(user);
-      } catch (e) {
-        return next(e);
-      }
-    },
-
     updateById: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const parsedParams = deviceIdParamSchema.safeParse(req.params);
@@ -137,6 +129,29 @@ export function createDevicesController(pool: Pool) {
         }
 
         res.status(200).json({ ...updated.device, manual: null });
+      } catch (e) {
+        return next(e);
+      }
+    },
+
+    getTell100Devices: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const parsed = devicesListQuerySchema.safeParse(req.query);
+        if (!parsed.success) {
+          next(
+            new AppError({
+              code: "VALIDATION_ERROR",
+              status: 400,
+              message: "Invalid query parameters",
+              details: parsed.error.flatten(),
+            })
+          );
+          return;
+        }
+
+        const user = (req as any).user as AuthUser;
+        const data = await getTel100DevicesList(pool, parsed.data, user);
+        res.status(200).json(data);
       } catch (e) {
         return next(e);
       }

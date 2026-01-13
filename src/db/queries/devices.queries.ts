@@ -301,3 +301,109 @@ export async function listDevices(pool: Pool, q: DevicesListQuery, user: AuthUse
   if (!rows) return null;
   return rows ?? null;
 }
+
+//
+//
+//
+//
+//
+//
+//
+//
+//
+// TEL100 constants
+const TEL100_VOICE_MAKAT = "309418000";
+const TEL100_MODEM_MAKATS = ["309415906", "309418100"] as const;
+
+export type Tel100ListRow = RowDataPacket & {
+  device_id: number;
+  serial: string;
+  makat: string;
+  device_name: string;
+  lifecycle_status: string;
+  battery_life: string | null;
+
+  unit_id: number | null;
+  unit_name: string | null;
+  storage_site: string | null;
+
+  has_voice_profile: number; // 0/1
+  has_modem_profile: number; // 0/1
+};
+
+export async function countTel100Devices(pool: Pool, q: DevicesListQuery, user: AuthUser): Promise<number> {
+  const clauses: string[] = ["d.deleted_at IS NULL", "d.makat IN (?, ?, ?)"];
+  const params: any[] = [TEL100_VOICE_MAKAT, ...TEL100_MODEM_MAKATS];
+
+  appendScope(clauses, params, user);
+
+  if (q.search) {
+    clauses.push("(d.serial LIKE ? OR d.device_name LIKE ?)");
+    const like = `%${q.search}%`;
+    params.push(like, like);
+  }
+
+  const whereSql = `WHERE ${clauses.join(" AND ")}`;
+
+  const [rows] = await pool.query<(RowDataPacket & { total: number })[]>(
+    `
+    SELECT COUNT(*) AS total
+    FROM core_device d
+    LEFT JOIN storage_units u ON u.id = d.current_unit_id
+    ${whereSql}
+    `,
+    params
+  );
+
+  return Number(rows[0]?.total ?? 0);
+}
+
+export async function listTel100Devices(pool: Pool, q: DevicesListQuery, user: AuthUser): Promise<Tel100ListRow[]> {
+  const clauses: string[] = ["d.deleted_at IS NULL", "d.makat IN (?, ?, ?)"];
+  const params: any[] = [TEL100_VOICE_MAKAT, ...TEL100_MODEM_MAKATS];
+
+  appendScope(clauses, params, user);
+
+  if (q.search) {
+    clauses.push("(d.serial LIKE ? OR d.device_name LIKE ?)");
+    const like = `%${q.search}%`;
+    params.push(like, like);
+  }
+
+  const whereSql = `WHERE ${clauses.join(" AND ")}`;
+
+  const sortCol = SORT_COLUMN_MAP[q.sort_by];
+  const sortDir = q.sort_order.toUpperCase() === "ASC" ? "ASC" : "DESC";
+  const offset = (q.page - 1) * q.limit;
+
+  const [rows] = await pool.query<Tel100ListRow[]>(
+    `
+    SELECT
+      d.id AS device_id,
+      d.serial,
+      d.makat,
+      d.device_name,
+      d.lifecycle_status,
+      DATE_FORMAT(d.battery_life, '%m/%Y') AS battery_life,
+
+      u.id AS unit_id,
+      u.unit_name,
+      u.storage_site,
+
+      CASE WHEN vp.core_device_id IS NULL THEN 0 ELSE 1 END AS has_voice_profile,
+      CASE WHEN mp.core_device_id IS NULL THEN 0 ELSE 1 END AS has_modem_profile
+
+    FROM core_device d
+    LEFT JOIN storage_units u ON u.id = d.current_unit_id
+    LEFT JOIN tel100_voice_profile vp ON vp.core_device_id = d.id
+    LEFT JOIN tel100_modem_profile mp ON mp.core_device_id = d.id
+    ${whereSql}
+    ORDER BY ${sortCol} ${sortDir}
+    LIMIT ?
+    OFFSET ?
+    `,
+    [...params, q.limit, offset]
+  );
+
+  return rows ?? [];
+}

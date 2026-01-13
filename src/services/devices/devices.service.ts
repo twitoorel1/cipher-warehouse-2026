@@ -3,6 +3,21 @@ import type { DevicePatchBody, DevicesListQuery } from "@validators/devices.sche
 import { getDeviceCardBySerial, getUnitSymbolForFamilyAndUnit, getActivePeriodsForFamily, getDeviceById, countDevices, listDevices, updateDeviceByIdScoped } from "@db/queries/devices.queries.js";
 import { CoreDeviceRow } from "@/types/devices.js";
 import { AuthUser } from "@/types/auth.js";
+import { countTel100Devices, listTel100Devices } from "@db/queries/devices.queries.js";
+
+export async function getTel100DevicesList(pool: Pool, q: DevicesListQuery, user: AuthUser) {
+  const total = await countTel100Devices(pool, q, user);
+  const items = await listTel100Devices(pool, q, user);
+  const total_pages = Math.ceil(total / q.limit);
+
+  return {
+    items,
+    page: q.page,
+    limit: q.limit,
+    total,
+    total_pages,
+  };
+}
 
 function toISODateOnly(d: Date): string {
   const yyyy = d.getUTCFullYear();
