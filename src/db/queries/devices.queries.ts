@@ -2,6 +2,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { DevicesListQuery } from "@validators/devices.schemas.js";
 import { AuthUser, Roles } from "@/types/auth.js";
 import { coreDeviceScope } from "@/db/scopes/coreDevice.scope.js";
+import { DeviceCardResponse } from "@/services/devices/devices.service.js";
 
 const queryBase = `
     SELECT
@@ -286,7 +287,7 @@ export async function listDevices(pool: Pool, q: DevicesListQuery, user: AuthUse
   const sortDir = q.sort_order.toUpperCase() === "ASC" ? "ASC" : "DESC";
   const offset = (q.page - 1) * q.limit;
 
-  const [rows] = await pool.query<DeviceCardRow[]>(
+  const [rows] = await pool.query<(RowDataPacket & DeviceCardRow)[]>(
     `
     ${queryBase}
 
@@ -376,6 +377,7 @@ export async function listTel100Devices(pool: Pool, q: DevicesListQuery, user: A
   const sortDir = q.sort_order.toUpperCase() === "ASC" ? "ASC" : "DESC";
   const offset = (q.page - 1) * q.limit;
 
+  // DATE_FORMAT(d.battery_life, '%m/%Y') AS battery_life,
   const [rows] = await pool.query<Tel100ListRow[]>(
     `
     SELECT
@@ -384,7 +386,6 @@ export async function listTel100Devices(pool: Pool, q: DevicesListQuery, user: A
       d.makat,
       d.device_name,
       d.lifecycle_status,
-      DATE_FORMAT(d.battery_life, '%m/%Y') AS battery_life,
 
       u.id AS unit_id,
       u.unit_name,

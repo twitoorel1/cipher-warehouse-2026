@@ -22,13 +22,14 @@ export const tel100VoiceProfileUpsertSchema = z.object({
   sim_red_copy_marking_long: z.string().max(200).nullable().optional(),
 });
 
-export const tel100ModemProfileUpsertSchema = z.object({
-  core_device_id: z.number().int().positive(),
+export const modemPatchSchema = z.object({
+  coreDeviceId: z.number().int().positive(),
+
   hamal_user: z.string().max(160).nullable().optional(),
   job_title: z.string().max(80).nullable().optional(),
 
-  sim_black: z.string().max(200).nullable().optional(),
-  sim_red_binding_id: z.string().max(200).nullable().optional(),
-  sim_red_copy_marking_short: z.string().max(200).nullable().optional(),
-  sim_red_copy_marking_long: z.string().max(200).nullable().optional(),
+  sim_black: z.string().max(128).nullable().optional(),
+  sim_red_binding_id: z.string().max(128).nullable().optional(),
+  sim_red_copy_marking_short: z.string().max(128).nullable().optional(),
+  sim_red_copy_marking_long: z.string().max(128).nullable().optional(),
 });

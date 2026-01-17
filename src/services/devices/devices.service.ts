@@ -5,20 +5,6 @@ import { CoreDeviceRow } from "@/types/devices.js";
 import { AuthUser } from "@/types/auth.js";
 import { countTel100Devices, listTel100Devices } from "@db/queries/devices.queries.js";
 
-export async function getTel100DevicesList(pool: Pool, q: DevicesListQuery, user: AuthUser) {
-  const total = await countTel100Devices(pool, q, user);
-  const items = await listTel100Devices(pool, q, user);
-  const total_pages = Math.ceil(total / q.limit);
-
-  return {
-    items,
-    page: q.page,
-    limit: q.limit,
-    total,
-    total_pages,
-  };
-}
-
 function toISODateOnly(d: Date): string {
   const yyyy = d.getUTCFullYear();
   const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
@@ -235,10 +221,149 @@ export async function getDeviceDetails(pool: Pool, id: number, user: AuthUser): 
   };
 }
 
-export async function getDevicesList(pool: Pool, q: DevicesListQuery, user: AuthUser) {
+export async function getDevicesList2(pool: Pool, q: DevicesListQuery, user: AuthUser) {
   const total = await countDevices(pool, q, user);
-  const items = await listDevices(pool, q, user);
   const total_pages = Math.ceil(total / q.limit);
+  const items = await listDevices(pool, q, user);
+  if (!items) return null;
+
+  return {
+    items,
+    page: q.page,
+    limit: q.limit,
+    total,
+    total_pages,
+  };
+}
+
+export async function getDevicesList(pool: Pool, q: DevicesListQuery, user: AuthUser): Promise<{ items: DeviceCardResponse[]; page: any; limit: any; total: any; total_pages: number }> {
+  const total = await countDevices(pool, q, user);
+  const total_pages = Math.ceil(total / q.limit);
+  const rows = (await listDevices(pool, q, user)) ?? [];
+  const todayISO = toISODateOnly(new Date());
+  const familyIds = Array.from(new Set(rows.map((r) => (r.family_id ? Number(r.family_id) : null)).filter((x): x is number => typeof x === "number" && Number.isFinite(x))));
+  const periodsByFamily = new Map<number, { code: string; order: number }[]>();
+  await Promise.all(
+    familyIds.map(async (familyId) => {
+      const periodsRows = await getActivePeriodsForFamily(pool, familyId, todayISO);
+      periodsByFamily.set(
+        familyId,
+        periodsRows.map((p) => ({ code: String(p.period_code), order: Number(p.period_order) }))
+      );
+    })
+  );
+
+  const items: DeviceCardResponse[] = rows.map((row) => {
+    const currentUnit =
+      row.unit_id && row.unit_name && row.storage_site
+        ? {
+            id: Number(row.unit_id),
+            unit_name: String(row.unit_name),
+            storage_site: String(row.storage_site),
+          }
+        : null;
+
+    if (!row.family_id || !row.family_code || !row.family_display_name || row.family_is_encrypted === null) {
+      return {
+        device: {
+          id: Number(row.device_id),
+          serial: String(row.serial),
+          makat: String(row.makat),
+          device_name: String(row.device_name),
+          lifecycle_status: String(row.lifecycle_status),
+          battery_life: row.battery_life ? String(row.battery_life) : null,
+          current_unit: currentUnit,
+          encryption: null,
+        },
+      };
+    }
+
+    const familyId = Number(row.family_id);
+    const symbolScope = String(row.symbol_scope || "GLOBAL") as "GLOBAL" | "PER_UNIT";
+    const isEncrypted = Number(row.family_is_encrypted) === 1;
+
+    let symbol: string | null = null;
+
+    if (symbolScope === "GLOBAL") {
+      symbol = row.symbol_global ? String(row.symbol_global) : null;
+    } else {
+      // PER_UNIT - פה אין צורך לקרוא DB שוב, יש לך כבר unit_symbol ב-listDevices query
+      symbol = row.current_unit_id ? (row.unit_symbol ? String(row.unit_symbol) : null) : null;
+    }
+
+    const periods = periodsByFamily.get(familyId) ?? [];
+
+    return {
+      device: {
+        id: Number(row.device_id),
+        serial: String(row.serial),
+        makat: String(row.makat),
+        device_name: String(row.device_name),
+        lifecycle_status: String(row.lifecycle_status),
+        battery_life: row.battery_life ? String(row.battery_life) : null,
+        current_unit: currentUnit,
+        encryption: {
+          is_encrypted: isEncrypted,
+          family: { code: String(row.family_code), display_name: String(row.family_display_name) },
+          carrier_code: row.carrier_code ? String(row.carrier_code) : null,
+          symbol_scope: symbolScope,
+          symbol,
+          periods,
+        },
+      },
+    };
+  });
+
+  return {
+    items,
+    page: q.page,
+    limit: q.limit,
+    total,
+    total_pages,
+  };
+}
+
+// Tel100 devices list
+export async function getTel100DevicesList(pool: Pool, q: DevicesListQuery, user: AuthUser) {
+  const total = await countTel100Devices(pool, q, user);
+  const total_pages = Math.ceil(total / q.limit);
+  const rows = (await listTel100Devices(pool, q, user)) ?? [];
+  const todayISO = toISODateOnly(new Date());
+  const familyIds = Array.from(new Set(rows.map((r) => (r.family_id ? Number(r.family_id) : null)).filter((x): x is number => typeof x === "number" && Number.isFinite(x))));
+  const periodsByFamily = new Map<number, { code: string; order: number }[]>();
+  await Promise.all(
+    familyIds.map(async (familyId) => {
+      const periodsRows = await getActivePeriodsForFamily(pool, familyId, todayISO);
+      periodsByFamily.set(
+        familyId,
+        periodsRows.map((p) => ({ code: String(p.period_code), order: Number(p.period_order) }))
+      );
+    })
+  );
+
+  const items = rows.map((row) => {
+    const currentUnit =
+      row.unit_id && row.unit_name && row.storage_site
+        ? {
+            id: Number(row.unit_id),
+            unit_name: String(row.unit_name),
+            storage_site: String(row.storage_site),
+          }
+        : null;
+
+    return {
+      device: {
+        id: Number(row.device_id),
+        serial: String(row.serial),
+        makat: String(row.makat),
+        device_name: String(row.device_name),
+        lifecycle_status: String(row.lifecycle_status),
+        current_unit: currentUnit,
+        hash_voice_profile: Number(row.has_voice_profile),
+        has_modem_profile: Number(row.has_modem_profile),
+      },
+    };
+  });
 
   return {
     items,

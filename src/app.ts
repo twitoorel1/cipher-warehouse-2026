@@ -15,6 +15,7 @@ import { auditWriteRoutes } from "./utils/writeRoutesAudit.js";
 import { requestContext } from "./middleware/requestContext.middleware.js";
 import { accessLog } from "./middleware/accessLog.middleware.js";
 import { auditWritePaths } from "./middleware/audit.middleware.js";
+import { attachKeyringFromLocals } from "./middleware/attachKeyring.middleware.js";
 
 export const createApp = (env: AppEnv, pool: Pool) => {
   const app = express();
@@ -34,6 +35,7 @@ export const createApp = (env: AppEnv, pool: Pool) => {
 
   // Correlation id + access logs must run early
   app.use(requestContext());
+  app.use(attachKeyringFromLocals);
   app.use(
     auditWritePaths({
       ignorePaths: ["/health"], // תוסיף כאן אם יש לך endpoints "רועשים"
@@ -57,7 +59,7 @@ export const createApp = (env: AppEnv, pool: Pool) => {
   app.use(express.static(path.join(__dirname, "public")));
   app.use(rateLimit());
   app.use(express.json({ limit: "10mb" }));
-  +app.use(express.raw({ type: "application/octet-stream", limit: "10mb" }));
+  app.use(express.raw({ type: "application/octet-stream", limit: "10mb" }));
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
   app.use(cookieParser());
 

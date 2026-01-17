@@ -11,7 +11,7 @@ function normPerm(p: unknown): string {
   return String(p ?? "").trim();
 }
 
-export function can(user: AuthUser & { permissionOverrides?: PermissionOverride[] }, permission: Permissions | string): boolean {
+export function can(user: AuthUser & { permissionOverrides?: PermissionOverride[]; }, permission: Permissions | string, p0: { silent: boolean; }): boolean {
   const target = normPerm(permission);
 
   // Admin => always allowed

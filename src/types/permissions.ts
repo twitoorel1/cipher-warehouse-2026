@@ -43,11 +43,19 @@ export enum Permissions {
   // =========================
   // Tel100 Profiles
   // =========================
+  TEL100_VOICE_PROFILE_CREATE = "tel100.voice.profile.create",
   TEL100_VOICE_PROFILE_READ = "tel100.voice.profile.read",
   TEL100_VOICE_PROFILE_UPDATE = "tel100.voice.profile.update",
   TEL100_VOICE_PROFILE_READ_SENSITIVE = "tel100.voice.profile.read_sensitive",
 
+  TEL100_MODEM_PROFILE_CREATE = "tel100.modem.profile.create",
   TEL100_MODEM_PROFILE_READ = "tel100.modem.profile.read",
   TEL100_MODEM_PROFILE_UPDATE = "tel100.modem.profile.update",
   TEL100_MODEM_PROFILE_READ_SENSITIVE = "tel100.modem.profile.read_sensitive",
+
+  TEL100_VOICE_VIEW = "tel100.voice.view",
+  TEL100_VOICE_VIEW_PLAINTEXT = "tel100.voice.view_plaintext",
+
+  TEL100_MODEM_VIEW = "tel100.modem.view",
+  TEL100_MODEM_VIEW_PLAINTEXT = "tel100.modem.view_plaintext",
 }

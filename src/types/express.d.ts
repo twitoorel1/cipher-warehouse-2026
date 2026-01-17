@@ -1,5 +1,7 @@
 import "express";
 import { Roles, PermissionOverride } from "../types/auth";
+import { Keyring } from "@/crypto/keyring.ts";
+import { AuthUser } from "./auth.ts";
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -10,6 +12,15 @@ declare module "express-serve-static-core" {
       division_id: number | null;
       permissionOverrides: PermissionOverride[];
     };
+    keyring?: Keyring;
     requestId?: string;
   }
 }
+
+// declare module "express-serve-static-core" {
+//   interface Request {
+//     user?: AuthUser;
+//     keyring: Keyring;
+//     requestId?: string;
+//   }
+// }

@@ -2,10 +2,15 @@ import { createApp } from "./app.js";
 import { loadEnv } from "./config/env.js";
 import { createDbPool } from "./db/pool.js";
 import { log } from "./utils/logger.js";
+import { loadKeyringFromEnv } from "./crypto/keyring.js";
 
 const env = loadEnv();
 const pool = createDbPool(env);
+
+const keyring = loadKeyringFromEnv(process.env);
+
 const app = createApp(env, pool);
+(app as any).locals.keyring = keyring;
 
 const server = app.listen(env.port, () => {
   log("info", "server_listening", {

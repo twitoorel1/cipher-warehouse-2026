@@ -1,3 +1,5 @@
+import { Keyring } from "@/crypto/keyring.js";
+
 export enum Roles {
   // ===== System level =====
   ADMIN = "ADMIN", // מנהל מערכת (בעל כל ההרשאות)
@@ -24,6 +26,7 @@ export type AuthUser = {
   battalion_id: number | null;
   division_id: number | null;
   permissionOverrides: PermissionOverride[];
+  keyring: Keyring;
 };
 
 export interface LoginInput {

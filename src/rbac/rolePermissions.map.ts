@@ -6,7 +6,7 @@ export const ROLE_PERMISSIONS: Record<Roles, Permissions[]> = {
   // =========================
   // Battalion
   // =========================
-  [Roles.BATTALION_SOLDIER]: [Permissions.DEVICES_READ, Permissions.INVENTORY_READ],
+  [Roles.BATTALION_SOLDIER]: [Permissions.DEVICES_READ, Permissions.INVENTORY_READ, Permissions.TEL100_MODEM_VIEW, Permissions.TEL100_MODEM_VIEW_PLAINTEXT],
 
   [Roles.BATTALION_NCO]: [Permissions.DEVICES_READ, Permissions.DEVICES_UPDATE, Permissions.INVENTORY_READ, Permissions.TEL100_VOICE_PROFILE_READ],
 
