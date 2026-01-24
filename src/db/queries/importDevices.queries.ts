@@ -143,6 +143,53 @@ export async function insertCoreDevice(db: DbConn, row: ImportInventoryRow, unit
  * Update inventory-only fields.
  * Also revives REMOVED -> ACTIVE when a device reappears.
  */
+export async function updateCoreDeviceInventoryOnlyScoped(db: DbConn, row: ImportInventoryRow, unitId: number, encryptionModelId: number | null, scope: ImportScope): Promise<"updated" | "unchanged" | "forbidden"> {
+  const whereScope: string[] = [];
+  const scopeParams: any[] = [];
+
+  // enforce scope by CURRENT device unit
+  if (scope.battalion_id !== null) {
+    whereScope.push("su.battalion_id = ?");
+    scopeParams.push(scope.battalion_id);
+  }
+  if (scope.division_id !== null) {
+    whereScope.push("su.division_id = ?");
+    scopeParams.push(scope.division_id);
+  }
+
+  // אם אין סקופ בכלל (ADMIN “גלובלי”) – אפשר להשאיר פתוח
+  const scopeSql = whereScope.length > 0 ? `AND (${whereScope.join(" AND ")})` : "";
+  const [res] = await db.query<ResultSetHeader>(
+    `
+      UPDATE core_device d
+      LEFT JOIN storage_units su ON su.id = d.current_unit_id
+      SET
+      d.makat = ?,
+      d.device_name = ?,
+      d.current_unit_id = ?,
+      d.encryption_model_id = COALESCE(?, d.encryption_model_id),
+      d.lifecycle_status = CASE
+        WHEN d.lifecycle_status = 'REMOVED' THEN 'ACTIVE'
+        ELSE d.lifecycle_status
+      END
+      WHERE d.serial = ?
+      AND d.deleted_at IS NULL
+      ${scopeSql}
+    `,
+    [row.makat, row.device_name, unitId, encryptionModelId, row.serial, ...scopeParams]
+  );
+
+  if (res.affectedRows > 0) return "updated";
+
+  // בדיקת "קיים אבל מחוץ לסקופ" כדי להחזיר forbidden (ולא silent unchanged)
+  if (whereScope.length > 0) {
+    const [chk] = await db.query<RowDataPacket[]>(`SELECT id FROM core_device WHERE serial = ? AND deleted_at IS NULL LIMIT 1`, [row.serial]);
+    if ((chk as any[]).length > 0) return "forbidden";
+  }
+
+  return "unchanged";
+}
+
 export async function updateCoreDeviceInventoryOnly(db: DbConn, row: ImportInventoryRow, unitId: number, encryptionModelId: number | null): Promise<"updated" | "unchanged"> {
   const [res] = await db.query<ResultSetHeader>(
     `

@@ -3,7 +3,16 @@ import * as XLSXNS from "xlsx";
 const XLSX: typeof XLSXNS = (XLSXNS as any).default ?? XLSXNS;
 
 import { importInventoryRowSchema, type ImportInventoryRow, storageSiteRegex } from "../../validators/importDevices.schemas.js";
-import { getCoreDeviceStateBySerial, insertCoreDevice, updateCoreDeviceInventoryOnly, markRemovedMissingSerials, getOrCreateStorageUnitIdBySite, getEncryptionModelIdByMakat, type ImportScope } from "../../db/queries/importDevices.queries.js";
+import {
+  getCoreDeviceStateBySerial,
+  insertCoreDevice,
+  updateCoreDeviceInventoryOnly,
+  updateCoreDeviceInventoryOnlyScoped,
+  markRemovedMissingSerials,
+  getOrCreateStorageUnitIdBySite,
+  getEncryptionModelIdByMakat,
+  type ImportScope,
+} from "../../db/queries/importDevices.queries.js";
 
 import { AppError } from "../../middleware/error.middleware.js";
 import type { ImportDevicesResponse, ImportErrorItem } from "../../types/imports.js";
@@ -221,8 +230,22 @@ export async function importDevicesInventoryExcel(pool: Pool, filePath: string, 
           await insertCoreDevice(conn, row, unitId, encryptionModelId);
           inserted++;
         } else {
-          const res = await updateCoreDeviceInventoryOnly(conn, row, unitId, encryptionModelId);
-          if (res === "updated") updated++;
+          // const res = await updateCoreDeviceInventoryOnly(conn, row, unitId, encryptionModelId);
+          // if (res === "updated") updated++;
+          const res = await updateCoreDeviceInventoryOnlyScoped(conn, row, unitId, encryptionModelId, scope);
+          if (res === "updated") {
+            updated++;
+          } else if (res === "forbidden") {
+            failed++;
+            if (errors.length < MAX_ERRORS) {
+              errors.push({
+                row_number: rowNumber,
+                code: "OUT_OF_SCOPE",
+                message: "Device exists but is out of your scope (serial update blocked)",
+                fields: { serial: row.serial },
+              });
+            }
+          }
         }
       } catch (e: any) {
         failed++;

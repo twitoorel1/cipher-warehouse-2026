@@ -268,7 +268,18 @@ export function createDevicesController(pool: Pool) {
         if (!user) return next(new Error("Unauthorized (req.user missing)"));
         if (!keyring) return next(new Error("Keyring missing on request"));
 
-        const body = modemPatchSchema.parse(req.body) as any;
+        const parsed = modemPatchSchema.safeParse(req.body ?? {});
+        if (!parsed.success) {
+          return next(
+            new AppError({
+              code: "VALIDATION_ERROR",
+              status: 400,
+              message: "Invalid request body",
+              details: parsed.error.flatten(),
+            })
+          );
+        }
+        const body = parsed.data as any;
 
         await updateTel100ModemProfileService(pool, keyring, user, body);
         return res.status(204).send("Updated successfully");
@@ -281,6 +292,16 @@ export function createDevicesController(pool: Pool) {
     async getTel100ModemProfileController(req: Request, res: Response, next: NextFunction) {
       try {
         const coreDeviceId = Number(req.params.coreDeviceId);
+        if (!Number.isFinite(coreDeviceId) || coreDeviceId <= 0) {
+          return next(
+            new AppError({
+              code: "VALIDATION_ERROR",
+              status: 400,
+              message: "Invalid coreDeviceId",
+            })
+          );
+        }
+
         const user = req.user as AuthUser;
         const keyring = req.keyring as AuthUser["keyring"];
 
@@ -303,6 +324,15 @@ export function createDevicesController(pool: Pool) {
         //   return;
         // }
         const coreDeviceId = Number(req.params.coreDeviceId);
+        if (!Number.isFinite(coreDeviceId) || coreDeviceId <= 0) {
+          return next(
+            new AppError({
+              code: "VALIDATION_ERROR",
+              status: 400,
+              message: "Invalid coreDeviceId",
+            })
+          );
+        }
 
         const user = (req as any).user as AuthUser;
         const keyring = (req as any).keyring; // req.keyring

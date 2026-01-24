@@ -102,7 +102,15 @@ export async function updateTel100VoiceProfileService(
   const simRedCopyMarkingLong = encOpt(keyring, input.sim_red_copy_marking_long, `${aadBase}:sim_red_copy_marking_long`);
   if (simRedCopyMarkingLong !== undefined) queryData.simRedCopyMarkingLong = simRedCopyMarkingLong;
 
-  await updateTel100VoiceProfileQuery(pool, queryData, user);
+  // await updateTel100VoiceProfileQuery(pool, queryData, user);
+  const r = await updateTel100VoiceProfileQuery(pool, queryData, user);
+  if (!r || (r as any).affectedRows === 0) {
+    throw new AppError({
+      code: "FORBIDDEN",
+      status: 403,
+      message: "Device is out of scope or voice profile not found",
+    });
+  }
 }
 
 function enc(keyring: Keyring, aadBase: string, field: string, v: string | null | undefined): EncryptedBundle | null | undefined {
